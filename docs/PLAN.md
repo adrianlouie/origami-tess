@@ -11,7 +11,7 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
 - [x] PR descriptions carry no "Generated with Claude Code" footer (decided 2026-11-07)
 
 ## Phase 0: Repo setup
-- [ ] 0.1 Scaffold repo (TypeScript, Vitest, fast-check), CLAUDE.md, docs/PLAN.md, docs/HANDOFF.md
+- [x] 0.1 Scaffold repo (TypeScript, Vitest, fast-check), CLAUDE.md, docs/PLAN.md, docs/HANDOFF.md
 - [ ] 0.2 CI (typecheck, lint, tests) and PR template
 - [ ] 0.3 `/handoff` and `/next-step` commands
 
