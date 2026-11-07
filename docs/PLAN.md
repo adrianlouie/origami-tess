@@ -17,7 +17,7 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
 
 ## Phase 1: Lattice
 - [x] 1.1 Eisenstein integer type (add, mul, rotate 60°) — test: rot60⁶ = identity
-- [ ] 1.2 Triangular grid generator — test: edge count for radius R
+- [x] 1.2 Triangular grid generator — test: edge count for radius R
 - [ ] 1.3 SVG renderer — test: snapshot of R=3 grid
 
 ## Phase 2: Symmetry
