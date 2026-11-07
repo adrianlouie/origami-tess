@@ -21,7 +21,7 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
 - [x] 1.3 SVG renderer — test: snapshot of R=3 grid
 
 ## Phase 2: Symmetry
-- [ ] 2.1 Affine transform and group type — test: group axioms hold
+- [x] 2.1 Affine transform and group type — test: group axioms hold
 - [ ] 2.2 p6m generators and orbit tiling — test: orbit closed under the group
 - [ ] 2.3 Motif + group → tiled render
 
