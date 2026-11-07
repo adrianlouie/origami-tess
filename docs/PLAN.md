@@ -12,7 +12,7 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
 
 ## Phase 0: Repo setup
 - [x] 0.1 Scaffold repo (TypeScript, Vitest, fast-check), CLAUDE.md, docs/PLAN.md, docs/HANDOFF.md
-- [ ] 0.2 CI (typecheck, lint, tests) and PR template
+- [x] 0.2 CI (typecheck, lint, tests) and PR template
 - [ ] 0.3 `/handoff` and `/next-step` commands
 
 ## Phase 1: Lattice

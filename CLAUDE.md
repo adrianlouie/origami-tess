@@ -30,6 +30,18 @@ Status and next steps live in `docs/PLAN.md` and `docs/HANDOFF.md`, not here.
 - Prefer property-based tests for invariants (e.g. every generated vertex satisfies Kawasaki).
 - Terms: crease pattern (CP), mountain/valley (M/V), gadget (reusable twist unit), motif (tile seed).
 
+## Comments and documentation
+- Every module opens with a header comment: its purpose and where it sits in the data flow.
+- Every exported function, class and type gets a TSDoc `/** */` comment: a one-line summary,
+  then `@param` / `@returns` where the meaning is not obvious from the name and type.
+- Math code states its source in the TSDoc: name the theorem or formula, define each symbol,
+  give units (angles in radians), and cite the reference.
+- Comment the why, not the what: invariants, why exact integers are used, why a tolerance is
+  needed, why a case is handled. Do not narrate code that reads clearly on its own.
+- Keep comments true: update or delete them in the same PR that changes the behavior.
+  No commented-out code. A `TODO` must name the plan step it belongs to (e.g. `TODO(5.2)`).
+- Tests are named for the property they check, with the theorem cited when one applies.
+
 ## Commands
 - `npm test`: unit and property tests
 - `npm run typecheck` · `npm run lint`
