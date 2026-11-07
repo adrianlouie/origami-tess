@@ -16,7 +16,7 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
 - [x] 0.3 `/handoff` and `/next-step` commands
 
 ## Phase 1: Lattice
-- [ ] 1.1 Eisenstein integer type (add, mul, rotate 60°) — test: rot60⁶ = identity
+- [x] 1.1 Eisenstein integer type (add, mul, rotate 60°) — test: rot60⁶ = identity
 - [ ] 1.2 Triangular grid generator — test: edge count for radius R
 - [ ] 1.3 SVG renderer — test: snapshot of R=3 grid
 
