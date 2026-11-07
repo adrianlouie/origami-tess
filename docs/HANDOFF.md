@@ -3,7 +3,7 @@
 Overwrite this note at the end of each session. Keep it to the latest state only.
 
 ## Last session: 2026-11-07
-Finished step 1.1: the Eisenstein integer type (PR in review). Phase 0 is merged.
+Finished step 1.1, the Eisenstein integer type (PR #5, merged). Made `/next-step` merge the previous step's PR when CI is green.
 
 ## State
 - Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`.
@@ -12,9 +12,10 @@ Finished step 1.1: the Eisenstein integer type (PR in review). Phase 0 is merged
 - `app/` is still empty.
 
 ## Next step
-Merge the step 1.1 PR once CI is green, then run `/next-step` to start 1.2 (triangular grid generator; test: edge count for radius R).
+Run `/next-step` to start 1.2 (triangular grid generator; test: edge count for radius R). It first merges any open PR whose CI is green (the `/next-step` change PR, if still open), so there is no manual merge.
 
 ## Gotchas and decisions
+- `/next-step` squash-merges the open PR (CI green only; stops if red, pending or ambiguous). Merging stays out of other commands.
 - Language is TypeScript. Python is only an optional `sympy` scratchpad; Rust→WASM only if the Phase 5 solver is too slow.
 - Never add a `Co-Authored-By: Claude` trailer to commits, and no "Generated with Claude Code" footer on PR descriptions. This overrides the default attribution reminder.
 - Lattice math uses exact integers (Eisenstein), not floats. `eis()` throws on non-safe-integers and normalises `-0`.
