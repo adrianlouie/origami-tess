@@ -1,0 +1,64 @@
+# Plan
+
+
+Each step is sized to one PR. Write the acceptance test before the code. Check a box only when the PR is merged.
+
+## Decisions
+- [x] Language: **TypeScript** for `core/` and `app/` (decided 2026-11-07). Vitest and fast-check for tests.
+  - Python is an optional scratchpad only: `sympy` notebooks to derive equations, never shipped.
+  - Rust→WASM is a later option for the Phase 5 layer solver, only if it proves too slow.
+- [x] GitHub repo: private [origami-tess](https://github.com/adrianlouie/origami-tess), local at `~/origami-tess` (created 2026-11-07, initial commit only)
+- [x] PR descriptions carry no "Generated with Claude Code" footer (decided 2026-11-07)
+
+## Phase 0: Repo setup
+- [ ] 0.1 Scaffold repo (TypeScript, Vitest, fast-check), CLAUDE.md, docs/PLAN.md, docs/HANDOFF.md
+- [ ] 0.2 CI (typecheck, lint, tests) and PR template
+- [ ] 0.3 `/handoff` and `/next-step` commands
+
+## Phase 1: Lattice
+- [ ] 1.1 Eisenstein integer type (add, mul, rotate 60°) — test: rot60⁶ = identity
+- [ ] 1.2 Triangular grid generator — test: edge count for radius R
+- [ ] 1.3 SVG renderer — test: snapshot of R=3 grid
+
+## Phase 2: Symmetry
+- [ ] 2.1 Affine transform and group type — test: group axioms hold
+- [ ] 2.2 p6m generators and orbit tiling — test: orbit closed under the group
+- [ ] 2.3 Motif + group → tiled render
+
+## Phase 3: Gadgets and validation
+- [ ] 3.1 Crease graph data structure — test: Euler relation on faces
+- [ ] 3.2 Kawasaki and Maekawa validators — test: known-valid pass, known-invalid fail
+- [ ] 3.3 Hexagon twist gadget — test: every vertex satisfies Kawasaki
+- [ ] 3.4 Triangle twist and star twist gadgets
+- [ ] 3.5 Big-Little-Big check
+
+## Phase 4: Mountain/valley solver
+- [ ] 4.1 Local M/V constraints as Boolean clauses
+- [ ] 4.2 SAT/backtracking solver — test: Maekawa holds at every vertex
+
+## Phase 5: Layer ordering
+- [ ] 5.1 Face adjacency and stacking constraints (taco-taco, taco-tortilla, tortilla-tortilla)
+- [ ] 5.2 Layer solver — test: known flat-foldable patterns yield a valid order
+- [ ] 5.3 Flat-folded layered render
+
+## Phase 6: 3D viewer
+- [ ] 6.1 Three.js scene with orbit/zoom/pan
+- [ ] 6.2 Bar-and-hinge fold simulation with fold-percentage slider
+
+## Phase 7: Export
+- [ ] 7.1 SVG/PDF with M/V line styles
+- [ ] 7.2 Guided pre-crease then collapse step list
+
+## Phase 8: Generative math
+- [ ] 8.1 Parameter sweeps (twist angle, n)
+- [ ] 8.2 Random motif + symmetry + solver repair
+- [ ] 8.3 Cellular-automaton growth on the lattice
+
+## Optional side modules
+- [ ] Miura-ori closed-form generator and rigid fold
+- [ ] Yoshimura, waterbomb, Resch
+
+## Known risks
+- Layer ordering is NP-hard in general; structured tessellations should be tractable. If the TypeScript solver is too slow, port that module to Rust→WASM.
+- Twist folds are not rigid-foldable, so the 3D animation is approximate; the flat-folded render is the accurate one.
+- Matching the style of the reference photos is realistic; matching them exactly is a stretch goal.
