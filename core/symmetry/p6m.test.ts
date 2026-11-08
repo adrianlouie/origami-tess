@@ -75,3 +75,9 @@ describe("inLattice", () => {
     expect(inLattice(mul(eis(2, 0), OMEGA), eis(2, 0))).toBe(true);
   });
 });
+
+describe("inLattice argument validation", () => {
+  it("rejects the zero period instead of returning a silent false (z % 0 is NaN)", () => {
+    expect(() => inLattice(eis(1, 0), eis(0, 0))).toThrow(RangeError);
+  });
+});

@@ -5,6 +5,8 @@ import {
   OMEGA,
   ZERO,
   add,
+  checkedAdd,
+  checkedMul,
   conj,
   eis,
   equals,
@@ -187,5 +189,60 @@ describe("eis constructor (exact integers only)", () => {
     expect(Object.is(z.a, 0)).toBe(true);
     expect(Object.is(z.b, 0)).toBe(true);
     expect(Object.is(neg(ZERO).a, 0)).toBe(true);
+  });
+});
+
+describe("checked arithmetic (results past 2^53 must throw, never round)", () => {
+  const big = fc.integer({ min: Number.MIN_SAFE_INTEGER, max: Number.MAX_SAFE_INTEGER });
+  const bigEis = fc.tuple(big, big).map(([a, b]) => eis(a, b));
+
+  /** Runs `f`; returns its value, or "overflow" if it threw RangeError. */
+  function attempt<T>(f: () => T): T | "overflow" {
+    try {
+      return f();
+    } catch (e) {
+      if (e instanceof RangeError) return "overflow";
+      throw e;
+    }
+  }
+
+  it("norm equals the exact BigInt a² − ab + b², or throws RangeError", () => {
+    fc.assert(
+      fc.property(bigEis, (z) => {
+        const a = BigInt(z.a);
+        const b = BigInt(z.b);
+        const exact = a * a - a * b + b * b;
+        const got = attempt(() => norm(z));
+        if (got !== "overflow") expect(BigInt(got)).toBe(exact);
+      }),
+    );
+  });
+
+  it("norm rejects 2^30 + (2^30 − 1)ω, whose exact norm is not representable", () => {
+    expect(() => norm(eis(2 ** 30, 2 ** 30 - 1))).toThrow(RangeError);
+  });
+
+  it("mul equals the exact BigInt product (ac − bd) + (ad + bc − bd)ω, or throws RangeError", () => {
+    fc.assert(
+      fc.property(bigEis, bigEis, (x, y) => {
+        const [a, b, c, d] = [BigInt(x.a), BigInt(x.b), BigInt(y.a), BigInt(y.b)];
+        const got = attempt(() => mul(x, y));
+        if (got !== "overflow") {
+          expect(BigInt(got.a)).toBe(a * c - b * d);
+          expect(BigInt(got.b)).toBe(a * d + b * c - b * d);
+        }
+      }),
+    );
+  });
+
+  it("checkedMul throws instead of rounding when the product is not exact", () => {
+    // 3 · 3002399751580331 = 2^53 + 1, which a double would round to 2^53.
+    expect(() => checkedMul(3, 3002399751580331)).toThrow(RangeError);
+    expect(checkedMul(94906265, 94906265)).toBe(94906265 * 94906265);
+  });
+
+  it("checkedAdd throws past 2^53 − 1 and agrees below it", () => {
+    expect(() => checkedAdd(Number.MAX_SAFE_INTEGER, 1)).toThrow(RangeError);
+    expect(checkedAdd(Number.MAX_SAFE_INTEGER, -1)).toBe(Number.MAX_SAFE_INTEGER - 1);
   });
 });
