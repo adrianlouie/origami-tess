@@ -1,15 +1,13 @@
 ## Last session: 2026-11-07
-Implemented plan step 3.2 (branch `step/3-2-kawasaki-maekawa-validators`, PR open). Tests 130 → 149; typecheck, lint and `format:check` pass. Step 3.1 (#14) is merged.
-
-Before that, step 3.1 (#14, merged) added exact direction predicates and the crease graph. Tests 103 → 130; typecheck, lint and `format:check` pass. The Phase 2 audit PR (#13) is merged.
+Implemented plan step 3.3, the hexagon twist gadget (branch `step/3-3-hexagon-twist-gadget`, PR open). Tests 149 → 159; typecheck, lint and `format:check` pass. Step 3.2 (#15) is merged.
 
 ## State
 - Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`.
-- `main` has everything through the Phase 2 audit. Branch `step/3-2-kawasaki-maekawa-validators` holds 3.2 and ticks it.
+- `main` has everything through the Phase 2 audit. Branch `step/3-3-hexagon-twist-gadget` holds 3.3 and ticks it.
 - No uncommitted work apart from the untracked `.idea/` folder (IDE files, deliberately not committed).
 
 ## Next step
-Merge the 3.2 PR (`/next-step`), then step **3.3**, the hexagon twist gadget (test: every vertex satisfies Kawasaki, via `checkLocalFlatFoldability`). `CLAUDE.md` says to ask whether you want a detailed plan before coding.
+Merge the 3.3 PR (`/next-step`), then step **3.4**, the triangle twist and star twist gadgets. Reuse `Crease` and the frame-ring idea from `hexagon-twist.ts`. `CLAUDE.md` says to ask whether you want a detailed plan before coding.
 
 ## Gotchas and decisions
 - `/next-step` squash-merges the open PR (CI green only; stops if red, pending or ambiguous).
@@ -39,6 +37,10 @@ Merge the 3.2 PR (`/next-step`), then step **3.3**, the hexagon twist gadget (te
 - The Kawasaki float cross-check test imports `RENDER_TOLERANCE` from `app/` (test only); `core/` source never does.
 - Layer ordering (Phase 5) is the hardest piece.
 - A schematic crease-pattern mockup was shown in chat; it is not verified foldable.
+
+- The hexagon twist needs a "B" frame ring (hexDistance R ≥ s + 1) or no vertex is interior and Kawasaki/Maekawa pass vacuously. Rays are length R − s and end on ring lattice points, so no T-junctions.
+- The twist has a fixed chirality and is centred at 0; the mirror twist is a reflection and placement goes through `Affine`, both left for later steps (3.4 / 8.1).
+- `fromSegments` takes a per-segment `assignment` (default stays the argument); the same segment with two different assignments throws RangeError.
 
 ## Open questions
 - None.

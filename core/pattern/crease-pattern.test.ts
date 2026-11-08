@@ -222,3 +222,45 @@ describe("construction", () => {
     expect(Object.isFrozen(cp.rotation[0])).toBe(true);
   });
 });
+
+describe("fromSegments per-segment assignments", () => {
+  const p = eis(0, 0);
+  const q = eis(1, 0);
+  const r = eis(0, 1);
+
+  it("keeps each segment's own assignment and defaults the rest", () => {
+    const cp = fromSegments(
+      [],
+      [
+        { from: p, to: q, assignment: "M" },
+        { from: q, to: r, assignment: "V" },
+        { from: r, to: p },
+      ],
+      "B",
+    );
+    expect(cp.edges.map((e) => e.assignment)).toEqual(["M", "V", "B"]);
+  });
+
+  it("merges a repeated segment with the same assignment", () => {
+    const cp = fromSegments(
+      [],
+      [
+        { from: p, to: q, assignment: "M" },
+        { from: q, to: p, assignment: "M" },
+      ],
+    );
+    expect(cp.edges).toHaveLength(1);
+  });
+
+  it("rejects one segment listed with conflicting assignments", () => {
+    expect(() =>
+      fromSegments(
+        [],
+        [
+          { from: p, to: q, assignment: "M" },
+          { from: q, to: p, assignment: "V" },
+        ],
+      ),
+    ).toThrow(RangeError);
+  });
+});
