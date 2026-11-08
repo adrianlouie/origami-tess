@@ -29,6 +29,7 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - `tilingToSvg` in app/render/svg.ts; `gridToSvg` output is unchanged
   - Properties: closure under the group, matches brute force, circle count = |orbit|, all inside the viewBox
   - Use a period other than 1 in examples (under p6m(1) every orbit fills the lattice)
+- [ ] 2.4 Phase 2 audit (`audit/phase-2`): debug and test Phases 1 and 2 per the `CLAUDE.md` "Phase audits" section
 
 ## Phase 3: Gadgets and validation
 - [ ] 3.1 Crease graph data structure — test: Euler relation on faces
