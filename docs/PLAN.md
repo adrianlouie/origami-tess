@@ -81,7 +81,13 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - Stale comments fixed; snapshots re-inspected as images
 
 ## Phase 4: Mountain/valley solver
-- [ ] 4.1 Local M/V constraints as Boolean clauses
+- [x] 4.1 Local M/V constraints as Boolean clauses
+  - `core/solve/clauses.ts`: `localMvClauses(cp)`, `vertexClauses`, `violatedClauses`, `satisfies`, `assignmentFromPattern`
+  - DIMACS variables: edge e is variable e + 1, positive = M. M/V creases already set get a unit clause; "U" creases are free; "B"/"F" never appear
+  - Maekawa by enumeration: one blocking clause per assignment outside #M ∈ {n/2 ± 1} (2ⁿ − 2·C(n, n/2+1)); odd degree gives the empty clause; degree above `MAX_ENCODED_DEGREE` = 12 throws
+  - Big-Little-Big: per run from the new `smallSectorRuns`, "not all equal" as two clauses, only at vertices that pass Kawasaki. Kawasaki is geometric, so failing vertices are returned in `formula.kawasaki`
+  - `foldingCreases(cp, v)` is shared by the validator and the encoder
+  - Test: exhaustive over every Kawasaki vertex of degree 4 and 6 from the 30° directions, clauses accept exactly `maekawaFlat && bigLittleBigFlat`; gadgets agree with `checkLocalFlatFoldability` on perturbed assignments; the three gadget negative controls violate the expected clause kinds
 - [ ] 4.2 SAT/backtracking solver — test: Maekawa holds at every vertex
 
 ## Phase 5: Layer ordering

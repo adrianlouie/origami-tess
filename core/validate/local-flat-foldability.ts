@@ -87,6 +87,31 @@ export function interiorVertices(cp: CreasePattern): number[] {
   return result;
 }
 
+/**
+ * Lists the creases at vertex v that fold, with their direction vectors.
+ *
+ * Flat ("F") creases are left out: they do not fold, so they divide no sector. The validators and
+ * the clause encoder in `solve/clauses.ts` both read a vertex through this function, so they
+ * cannot disagree about which creases count.
+ *
+ * @returns edge indices and the matching directions (away from v), counter-clockwise from +x
+ */
+export function foldingCreases(
+  cp: CreasePattern,
+  v: number,
+): { edges: number[]; directions: Eisenstein[] } {
+  const edges: number[] = [];
+  const directions: Eisenstein[] = [];
+  for (const e of cp.rotation[v] ?? []) {
+    const edge = cp.edges[e]!;
+    if (edge.assignment === "F") continue;
+    const other = edge.v0 === v ? edge.v1 : edge.v0;
+    directions.push(sub(cp.vertices[other]!, cp.vertices[v]!));
+    edges.push(e);
+  }
+  return { edges, directions };
+}
+
 /** Which interior vertices violate which local condition. */
 export type LocalFlatFoldabilityReport = {
   /** Interior vertices whose creases fail the Kawasaki condition. */
@@ -118,15 +143,8 @@ export function checkLocalFlatFoldability(cp: CreasePattern): LocalFlatFoldabili
   const unassigned: number[] = [];
   const bigLittleBig: number[] = [];
   for (const v of interiorVertices(cp)) {
-    const directions: Eisenstein[] = [];
-    const assignments: Assignment[] = [];
-    for (const e of cp.rotation[v] ?? []) {
-      const edge = cp.edges[e]!;
-      if (edge.assignment === "F") continue;
-      const other = edge.v0 === v ? edge.v1 : edge.v0;
-      directions.push(sub(cp.vertices[other]!, cp.vertices[v]!));
-      assignments.push(edge.assignment);
-    }
+    const { edges, directions } = foldingCreases(cp, v);
+    const assignments: Assignment[] = edges.map((e) => cp.edges[e]!.assignment);
     // Only "F" creases: nothing folds here, so the vertex is trivially flat.
     if (directions.length === 0) continue;
     const kawasakiOk = kawasakiFlat(directions);
