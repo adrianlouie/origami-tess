@@ -42,7 +42,10 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - Faces by half-edge traversal; a walk with positive doubled area is bounded, so F = bounded + 1 and V − E + F = 1 + C
   - Planarity is enforced (crossings, T-junctions, duplicates throw RangeError), not repaired
   - Assignments follow FOLD: `M | V | B | F | U`, default `U`
-- [ ] 3.2 Kawasaki and Maekawa validators — test: known-valid pass, known-invalid fail
+- [x] 3.2 Kawasaki and Maekawa validators — test: known-valid pass, known-invalid fail
+  - `core/validate/local-flat-foldability.ts`: `kawasakiFlat`, `maekawaFlat`, `interiorVertices`, `checkLocalFlatFoldability`
+  - Kawasaki is exact: the odd sector sum is arg Q with Q = Π d₂ₖ·conj(d₂ₖ₋₁), and it equals π iff Q is a negative real (`b === 0 && a < 0`)
+  - Only interior vertices are checked (no border edge, every sector in a bounded face); "F" creases are ignored; vertices with a "U" crease are reported as `unassigned`, not failed
 - [ ] 3.3 Hexagon twist gadget — test: every vertex satisfies Kawasaki
 - [ ] 3.4 Triangle twist and star twist gadgets
 - [ ] 3.5 Big-Little-Big check

@@ -1,13 +1,15 @@
 ## Last session: 2026-11-07
-Implemented plan step 3.1 (branch `step/3-1-crease-graph`, PR open). Added exact direction predicates and the crease graph. Tests 103 → 130; typecheck, lint and `format:check` pass. The Phase 2 audit PR (#13) is merged.
+Implemented plan step 3.2 (branch `step/3-2-kawasaki-maekawa-validators`, PR open). Tests 130 → 149; typecheck, lint and `format:check` pass. Step 3.1 (#14) is merged.
+
+Before that, step 3.1 (#14, merged) added exact direction predicates and the crease graph. Tests 103 → 130; typecheck, lint and `format:check` pass. The Phase 2 audit PR (#13) is merged.
 
 ## State
 - Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`.
-- `main` has everything through the Phase 2 audit. Branch `step/3-1-crease-graph` holds 3.1 and ticks it.
+- `main` has everything through the Phase 2 audit. Branch `step/3-2-kawasaki-maekawa-validators` holds 3.2 and ticks it.
 - No uncommitted work apart from the untracked `.idea/` folder (IDE files, deliberately not committed).
 
 ## Next step
-Merge the 3.1 PR (`/next-step`), then step **3.2**, the Kawasaki and Maekawa validators (test: known-valid pass, known-invalid fail). `CLAUDE.md` says to ask whether you want a detailed plan before coding.
+Merge the 3.2 PR (`/next-step`), then step **3.3**, the hexagon twist gadget (test: every vertex satisfies Kawasaki, via `checkLocalFlatFoldability`). `CLAUDE.md` says to ask whether you want a detailed plan before coding.
 
 ## Gotchas and decisions
 - `/next-step` squash-merges the open PR (CI green only; stops if red, pending or ambiguous).
@@ -31,6 +33,10 @@ Merge the 3.1 PR (`/next-step`), then step **3.2**, the Kawasaki and Maekawa val
 - `creasePattern` rejects non-planar input (crossings, a vertex inside an edge, duplicates, self-loops) instead of splitting edges. Splitting would be its own step.
 - Half-edge h = 2e is v0→v1 and 2e + 1 is v1→v0, so the twin is `h ^ 1`.
 - `noUncheckedIndexedAccess` is on, so array reads need `at(...)`, `?.` or `!`.
+- `kawasakiFlat` takes directions in counter-clockwise cyclic order from any starting point (a shift swaps the odd and even sums, which are both π at a solution). It reduces to primitive vectors so products stay small; overflow still throws RangeError.
+- `interiorVertices` counts a vertex's appearances in `cp.faces` walks and compares with its degree; a patch's outer ring is therefore never flagged. Vertices with a "B" edge are exempt.
+- `checkLocalFlatFoldability` ignores "F" creases, runs Kawasaki on "U" creases too, and lists vertices with a "U" crease under `unassigned` instead of failing Maekawa. Both conditions are necessary only; Big-Little-Big is 3.5.
+- The Kawasaki float cross-check test imports `RENDER_TOLERANCE` from `app/` (test only); `core/` source never does.
 - Layer ordering (Phase 5) is the hardest piece.
 - A schematic crease-pattern mockup was shown in chat; it is not verified foldable.
 
