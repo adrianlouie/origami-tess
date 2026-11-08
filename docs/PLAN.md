@@ -88,7 +88,11 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - Big-Little-Big: per run from the new `smallSectorRuns`, "not all equal" as two clauses, only at vertices that pass Kawasaki. Kawasaki is geometric, so failing vertices are returned in `formula.kawasaki`
   - `foldingCreases(cp, v)` is shared by the validator and the encoder
   - Test: exhaustive over every Kawasaki vertex of degree 4 and 6 from the 30° directions, clauses accept exactly `maekawaFlat && bigLittleBigFlat`; gadgets agree with `checkLocalFlatFoldability` on perturbed assignments; the three gadget negative controls violate the expected clause kinds
-- [ ] 4.2 SAT/backtracking solver — test: Maekawa holds at every vertex
+- [x] 4.2 SAT/backtracking solver — test: Maekawa holds at every vertex
+  - `core/solve/solver.ts`: `solveFormula`, `solveMv(cp)`, `mvSolutions` (lazy, all solutions via blocking clauses), `withMvAssignment(cp, assignment)`
+  - DPLL with unit propagation and an explicit backtracking stack; branches valley first, so results are deterministic. A formula with Kawasaki failures returns `kawasaki` without searching
+  - `unsat` names the vertices on the propagation chain when the conflict needs no branching, otherwise `vertices: []`; it is not a minimal core
+  - Test: each gadget with every M/V crease reset to "U" is solved and passes `checkLocalFlatFoldability` cleanly; sat/unsat agrees with brute force on random freed/flipped creases; `mvSolutions` count equals brute force
 
 ## Phase 5: Layer ordering
 - [ ] 5.1 Face adjacency and stacking constraints (taco-taco, taco-tortilla, tortilla-tortilla)
