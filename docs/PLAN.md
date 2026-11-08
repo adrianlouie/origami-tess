@@ -63,7 +63,15 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - Sectors 2π/3, π/3, π/3, 2π/3 at each corner (Kawasaki for every n, m); 3 M + 1 V, and the lone V is on a crease bounding the two small sectors, so Big-Little-Big holds
   - Closed by a concentric triangular "B" frame of side n + 3m, with corners −m(2+ω), n + m(1−ω) and their rotation, listed as unit edges so every ray ends on a frame point
   - Negative control: swapping M/V on every ray keeps Kawasaki and Maekawa but fails Big-Little-Big at all three corners
-- [ ] 3.6 Star twist gadget — define it from the reference photos first (a hexagram needs creases inside the star)
+- [x] 3.6 Star twist gadget — test: Kawasaki, Maekawa and Big-Little-Big hold at every interior vertex
+  - `core/gadgets/star-twist.ts`: `starTwistCreases(s)`, `starTwist(s)`; `rotate` and `hexagonFrame` moved to `core/gadgets/crease.ts`
+  - No reference photos exist in the repo, so this is a spoked hexagram defined from first principles: a collapsed star, not a rotating twist
+  - Vertices O = 0, Pₖ = s·uᵏ, Tₖ = Pₖ + Pₖ₊₁ (tips), Qₖ = 2s·uᵏ; 48 creases of length s (8 per k) inside a "B" frame at radius 3s
+  - The inner hexagon edges are not creased (they break Kawasaki at Pₖ), and keeping both halves of the outer hexagon at each tip also breaks it (sectors π/3, π/3, π/3, π); gₖ is continued straight through the tip instead
+  - The crease set was found by an exhaustive search of 6-fold symmetric crease sets on the radius-3 grid (8 pass Kawasaki); the sparsest was used
+  - M/V: aₖ = bₖ = pₖ (M, V, V repeating), eₖ = V, gₖ = M, hₖ = xₖ = y±ₖ = ¬pₖ₊₁; the centre is 2 M / 4 V, so the assignment is only half-turn symmetric
+  - Frame radius is fixed at 3s because xₖ and y⁺ₖ meet on the frame there; a larger frame makes them cross
+  - Negative controls: swapping the b, e, h creases fails Big-Little-Big only (6 vertices); swapping the spokes fails Maekawa at the six Pₖ
 
 ## Phase 4: Mountain/valley solver
 - [ ] 4.1 Local M/V constraints as Boolean clauses
