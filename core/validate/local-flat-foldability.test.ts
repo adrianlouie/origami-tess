@@ -220,12 +220,22 @@ describe("checkLocalFlatFoldability", () => {
     const cp = wheel(
       [0, 1, 2, 3, 4, 5].map((k, i) => [k, i < 4 ? "M" : "V"] as [number, Assignment]),
     );
-    expect(checkLocalFlatFoldability(cp)).toEqual({ kawasaki: [], maekawa: [], unassigned: [] });
+    expect(checkLocalFlatFoldability(cp)).toEqual({
+      kawasaki: [],
+      maekawa: [],
+      unassigned: [],
+      bigLittleBig: [],
+    });
   });
 
   it("flags a Maekawa violation: MMMMMV has |M − V| = 4", () => {
     const cp = wheel([0, 1, 2, 3, 4, 5].map((k) => [k, k < 5 ? "M" : "V"] as [number, Assignment]));
-    expect(checkLocalFlatFoldability(cp)).toEqual({ kawasaki: [], maekawa: [0], unassigned: [] });
+    expect(checkLocalFlatFoldability(cp)).toEqual({
+      kawasaki: [],
+      maekawa: [0],
+      unassigned: [],
+      bigLittleBig: [],
+    });
   });
 
   it("flags a Kawasaki violation: a missing spoke leaves degree 5", () => {
@@ -242,7 +252,29 @@ describe("checkLocalFlatFoldability", () => {
       [3, "M"],
       [5, "V"],
     ]);
-    expect(checkLocalFlatFoldability(cp)).toEqual({ kawasaki: [], maekawa: [], unassigned: [] });
+    expect(checkLocalFlatFoldability(cp)).toEqual({
+      kawasaki: [],
+      maekawa: [],
+      unassigned: [],
+      bigLittleBig: [],
+    });
+  });
+
+  it("flags a Big-Little-Big violation that passes Kawasaki and Maekawa", () => {
+    // Spokes at 0°, 120°, 180°, 240° (sectors 120°, 60°, 60°, 120°) with the lone valley on the
+    // 0° spoke, outside the run of two small sectors, so the corner cannot fold flat.
+    const cp = wheel([
+      [0, "V"],
+      [2, "M"],
+      [3, "M"],
+      [4, "M"],
+    ]);
+    expect(checkLocalFlatFoldability(cp)).toEqual({
+      kawasaki: [],
+      maekawa: [],
+      unassigned: [],
+      bigLittleBig: [0],
+    });
   });
 
   it("works for creases that are not lattice directions", () => {
@@ -264,6 +296,7 @@ describe("checkLocalFlatFoldability", () => {
       kawasaki: [],
       maekawa: [],
       unassigned: [],
+      bigLittleBig: [],
     });
   });
 });

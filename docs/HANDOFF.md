@@ -1,13 +1,13 @@
 ## Last session: 2026-11-07
-Implemented plan step 3.3, the hexagon twist gadget (branch `step/3-3-hexagon-twist-gadget`, PR open). Tests 149 → 159; typecheck, lint and `format:check` pass. Step 3.2 (#15) is merged.
+Implemented plan step 3.4, the Big-Little-Big check (branch `step/3-4-big-little-big-check`). Tests 159 → 168; typecheck, lint and `format:check` pass. Step 3.3 (#16) is merged. Steps were renumbered: the triangle twist is now 3.5 and the star twist 3.6.
 
 ## State
 - Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`.
-- `main` has everything through the Phase 2 audit. Branch `step/3-3-hexagon-twist-gadget` holds 3.3 and ticks it.
+- `main` has everything through step 3.3. Branch `step/3-4-big-little-big-check` holds 3.4 and ticks it.
 - No uncommitted work apart from the untracked `.idea/` folder (IDE files, deliberately not committed).
 
 ## Next step
-Merge the 3.3 PR (`/next-step`), then step **3.4**, the triangle twist and star twist gadgets. Reuse `Crease` and the frame-ring idea from `hexagon-twist.ts`. `CLAUDE.md` says to ask whether you want a detailed plan before coding.
+Merge the 3.4 PR (`/next-step`), then step **3.5**, the triangle twist; its geometry is written out in `docs/PLAN.md`. `CLAUDE.md` says to ask whether you want a detailed plan before coding. The star twist (3.6) needs a definition from the reference photos first.
 
 ## Gotchas and decisions
 - `/next-step` squash-merges the open PR (CI green only; stops if red, pending or ambiguous).
@@ -35,6 +35,9 @@ Merge the 3.3 PR (`/next-step`), then step **3.4**, the triangle twist and star 
 - `interiorVertices` counts a vertex's appearances in `cp.faces` walks and compares with its degree; a patch's outer ring is therefore never flagged. Vertices with a "B" edge are exempt.
 - `checkLocalFlatFoldability` ignores "F" creases, runs Kawasaki on "U" creases too, and lists vertices with a "U" crease under `unassigned` instead of failing Maekawa. Both conditions are necessary only; Big-Little-Big is 3.5.
 - The Kawasaki float cross-check test imports `RENDER_TOLERANCE` from `app/` (test only); `core/` source never does.
+- Big-Little-Big (`bigLittleBigFlat`): for a maximal run of equal sectors strictly smaller than both neighbours, the creases bounding the run must not all agree. With sectors 2π/3, π/3, π/3, 2π/3 the odd crease may be any of the three bounding the run, not only the middle one; only an odd crease outside the run is rejected. `checkLocalFlatFoldability` returns `bigLittleBig` for Kawasaki-passing, fully assigned vertices.
+- **Correction to an earlier claim:** during planning I wrongly concluded that a four-valent triangle twist cannot fold flat (I assumed the middle crease had to be the odd one). The brute-force oracle in `big-little-big.test.ts` showed M, M, M, V is foldable at such a corner, and I fixed the rule. The triangle twist as originally planned is locally valid; whether it folds globally is a Phase 5 question.
+- The oracle `foldsFlat` in `big-little-big.test.ts` is a single-vertex layer-order search with float positions (test only). The rule is exact against it at degree 4 and necessary at degree 6, but is not claimed sufficient above degree 4.
 - Layer ordering (Phase 5) is the hardest piece.
 - A schematic crease-pattern mockup was shown in chat; it is not verified foldable.
 

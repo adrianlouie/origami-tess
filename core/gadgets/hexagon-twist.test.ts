@@ -26,7 +26,12 @@ const key = (c: Crease) => {
 describe("hexagonTwist", () => {
   it("passes Kawasaki and Maekawa at every interior vertex (s=1, R=2)", () => {
     const cp = hexagonTwist(1, 2);
-    expect(checkLocalFlatFoldability(cp)).toEqual({ kawasaki: [], maekawa: [], unassigned: [] });
+    expect(checkLocalFlatFoldability(cp)).toEqual({
+      kawasaki: [],
+      maekawa: [],
+      unassigned: [],
+      bigLittleBig: [],
+    });
     const interior = interiorVertices(cp).map((v) => cp.vertices[v]!);
     expect(interior).toHaveLength(6);
     for (let k = 0; k < 6; k++) expect(interior.some((z) => equals(z, corner(1, k)))).toBe(true);
@@ -40,6 +45,7 @@ describe("hexagonTwist", () => {
           kawasaki: [],
           maekawa: [],
           unassigned: [],
+          bigLittleBig: [],
         });
         const interior = interiorVertices(cp).map((v) => cp.vertices[v]!);
         expect(interior).toHaveLength(6);
