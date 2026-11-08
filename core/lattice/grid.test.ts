@@ -1,16 +1,6 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
-import {
-  ONE,
-  ZERO,
-  eis,
-  equals,
-  neg,
-  norm,
-  rot60,
-  sub,
-  type Eisenstein,
-} from "./eisenstein";
+import { ONE, ZERO, eis, equals, neg, norm, rot60, sub, type Eisenstein } from "./eisenstein";
 import { hexDistance, triangularGrid } from "./grid";
 
 /** Radii kept small enough that the O(R²) grid builds quickly under fast-check. */
@@ -27,9 +17,7 @@ const edgeKey = (p: Eisenstein, q: Eisenstein) => {
 
 describe("triangularGrid edge count (acceptance test for step 1.2)", () => {
   it("has 9R² + 3R edges (3F + 6R = 2E with F = 6R² triangles)", () => {
-    fc.assert(
-      fc.property(radius, (r) => triangularGrid(r).edges.length === 9 * r * r + 3 * r),
-    );
+    fc.assert(fc.property(radius, (r) => triangularGrid(r).edges.length === 9 * r * r + 3 * r));
   });
 
   it("matches the known counts for R = 0, 1, 2, 3", () => {
@@ -40,10 +28,7 @@ describe("triangularGrid edge count (acceptance test for step 1.2)", () => {
 describe("triangularGrid vertices", () => {
   it("has 3R² + 3R + 1 vertices (centred hexagonal number)", () => {
     fc.assert(
-      fc.property(
-        radius,
-        (r) => triangularGrid(r).vertices.length === 3 * r * r + 3 * r + 1,
-      ),
+      fc.property(radius, (r) => triangularGrid(r).vertices.length === 3 * r * r + 3 * r + 1),
     );
   });
 
@@ -77,8 +62,7 @@ describe("triangularGrid edges", () => {
         const { edges, vertices } = triangularGrid(r);
         const keys = new Set(vertices.map(key));
         return edges.every(
-          (e) =>
-            norm(sub(e.to, e.from)) === 1 && keys.has(key(e.from)) && keys.has(key(e.to)),
+          (e) => norm(sub(e.to, e.from)) === 1 && keys.has(key(e.from)) && keys.has(key(e.to)),
         );
       }),
     );
@@ -166,5 +150,29 @@ describe("triangularGrid argument validation", () => {
     expect(() => triangularGrid(-1)).toThrow(RangeError);
     expect(() => triangularGrid(1.5)).toThrow(RangeError);
     expect(() => triangularGrid(NaN)).toThrow(RangeError);
+  });
+});
+
+describe("hexDistance agrees with graph distance", () => {
+  it("equals the breadth-first shortest path from the origin on the R = 6 grid", () => {
+    const grid = triangularGrid(6);
+    const k = (z: Eisenstein) => `${z.a},${z.b}`;
+    const adj = new Map<string, Eisenstein[]>();
+    for (const v of grid.vertices) adj.set(k(v), []);
+    for (const e of grid.edges) {
+      adj.get(k(e.from))!.push(e.to);
+      adj.get(k(e.to))!.push(e.from);
+    }
+    const dist = new Map<string, number>([[k(eis(0, 0)), 0]]);
+    const queue: Eisenstein[] = [eis(0, 0)];
+    for (const z of queue) {
+      for (const n of adj.get(k(z))!) {
+        if (!dist.has(k(n))) {
+          dist.set(k(n), dist.get(k(z))! + 1);
+          queue.push(n);
+        }
+      }
+    }
+    for (const v of grid.vertices) expect(hexDistance(v)).toBe(dist.get(k(v)));
   });
 });

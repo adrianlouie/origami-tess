@@ -10,9 +10,9 @@
  * (the A2 lattice); Red Blob Games, "Hexagonal Grids" (cube coordinates).
  */
 
-import { add, eis, type Eisenstein } from "./eisenstein";
+import { add, checkedAdd, eis, type Eisenstein } from "./eisenstein";
 
-/** An undirected unit-length lattice edge, stored once as from → to. */
+/** An undirected lattice segment, stored once as from → to. The grid's own edges have unit length. */
 export type Edge = { readonly from: Eisenstein; readonly to: Eisenstein };
 
 /** The hexagonal grid of radius `radius`: all lattice points within that many unit steps of 0. */
@@ -42,7 +42,7 @@ const FORWARD_UNITS: readonly Eisenstein[] = [eis(1, 0), eis(1, 1), eis(0, 1)];
  * @returns the hex distance, a non-negative integer
  */
 export function hexDistance(z: Eisenstein): number {
-  return Math.max(Math.abs(z.a), Math.abs(z.b), Math.abs(z.a - z.b));
+  return Math.max(Math.abs(z.a), Math.abs(z.b), Math.abs(checkedAdd(z.a, -z.b)));
 }
 
 /**

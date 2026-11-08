@@ -44,7 +44,7 @@ Status and next steps live in `docs/PLAN.md` and `docs/HANDOFF.md`, not here.
 
 ## Commands
 - `npm test`: unit and property tests
-- `npm run typecheck` · `npm run lint`
+- `npm run typecheck` · `npm run lint` · `npm run format:check` (`npm run format` fixes)
 
 ## Phase audits
 - After the last step of every phase is merged, run a debug and test audit before starting the

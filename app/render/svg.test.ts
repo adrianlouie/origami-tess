@@ -31,9 +31,7 @@ function parseViewBox(svg: string): [number, number, number, number] {
 
 describe("gridToSvg snapshot (acceptance test for step 1.3)", () => {
   it("renders the R=3 grid to the committed SVG", async () => {
-    await expect(gridToSvg(triangularGrid(3))).toMatchFileSnapshot(
-      "./__snapshots__/grid-r3.svg",
-    );
+    await expect(gridToSvg(triangularGrid(3))).toMatchFileSnapshot("./__snapshots__/grid-r3.svg");
   });
 });
 
@@ -47,9 +45,7 @@ describe("gridToSvg", () => {
       fc.property(fc.integer({ min: 0, max: 8 }), (r) => {
         const svg = gridToSvg(triangularGrid(r), { scale: 1 });
         for (const l of parseLines(svg)) {
-          expect(Math.abs(Math.hypot(l.x2 - l.x1, l.y2 - l.y1) - 1)).toBeLessThan(
-            RENDER_TOLERANCE,
-          );
+          expect(Math.abs(Math.hypot(l.x2 - l.x1, l.y2 - l.y1) - 1)).toBeLessThan(RENDER_TOLERANCE);
         }
       }),
     );
@@ -135,16 +131,69 @@ describe("tilingToSvg", () => {
     );
   });
 
+  it("keeps everything inside the viewBox for random motifs (tile → render interface)", () => {
+    const pt = fc.tuple(fc.integer({ min: -6, max: 6 }), fc.integer({ min: -6, max: 6 }));
+    const edge = fc
+      .tuple(pt, pt)
+      .filter(([p, q]) => p[0] !== q[0] || p[1] !== q[1])
+      .map(([p, q]) => ({ from: eis(...p), to: eis(...q) }));
+    const motifs = fc.record({
+      points: fc.array(
+        pt.map(([a, b]) => eis(a, b)),
+        { maxLength: 3 },
+      ),
+      edges: fc.array(edge, { maxLength: 3 }),
+    });
+    fc.assert(
+      fc.property(validPeriod, motifs, fc.integer({ min: 0, max: 5 }), (period, m, r) => {
+        const svg = tilingToSvg(tile(p6m(period), m, r));
+        const [x, y, w, h] = parseViewBox(svg);
+        const pts = [
+          ...parseLines(svg).flatMap((l) => [
+            [l.x1, l.y1],
+            [l.x2, l.y2],
+          ]),
+          ...parseCircles(svg).map((c) => [c.cx, c.cy]),
+        ];
+        for (const [px, py] of pts) {
+          expect(px!).toBeGreaterThanOrEqual(x);
+          expect(px!).toBeLessThanOrEqual(x + w);
+          expect(py!).toBeGreaterThanOrEqual(y);
+          expect(py!).toBeLessThanOrEqual(y + h);
+        }
+      }),
+    );
+  });
+
   it("preserves edge length: every tiled line is as long as the motif edge (D6 and translations are isometries)", () => {
     fc.assert(
       fc.property(validPeriod, fc.integer({ min: 1, max: 6 }), (period, r) => {
         const svg = tilingToSvg(tile(p6m(period), motif, r), { scale: 1 });
         for (const l of parseLines(svg)) {
-          expect(Math.abs(Math.hypot(l.x2 - l.x1, l.y2 - l.y1) - 1)).toBeLessThan(
-            RENDER_TOLERANCE,
-          );
+          expect(Math.abs(Math.hypot(l.x2 - l.x1, l.y2 - l.y1) - 1)).toBeLessThan(RENDER_TOLERANCE);
         }
       }),
     );
+  });
+});
+
+describe("svg robustness", () => {
+  it("renders a large grid (R = 200) without overflowing the call stack", () => {
+    const svg = gridToSvg(triangularGrid(200));
+    expect(parseLines(svg)).toHaveLength(9 * 200 * 200 + 3 * 200);
+  });
+
+  it("rejects non-positive or non-finite options", () => {
+    const grid = triangularGrid(1);
+    for (const opts of [
+      { scale: 0 },
+      { scale: NaN },
+      { strokeWidth: -1 },
+      { margin: -0.1 },
+      { margin: Infinity },
+    ]) {
+      expect(() => gridToSvg(grid, opts)).toThrow(RangeError);
+    }
+    expect(() => tilingToSvg({ points: [], edges: [] }, { pointRadius: 0 })).toThrow(RangeError);
   });
 });

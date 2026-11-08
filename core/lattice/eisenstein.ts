@@ -37,6 +37,30 @@ export function eis(a: number, b: number): Eisenstein {
   return { a: a + 0, b: b + 0 };
 }
 
+/**
+ * Returns x·y, throwing RangeError unless the product is a safe integer.
+ *
+ * Why: IEEE 754 doubles are exact for integers up to 2⁵³ and round beyond, and
+ * rounding is monotone, so a true product of magnitude ≥ 2⁵³ can never come out
+ * below 2⁵³. Checking every intermediate therefore catches all precision loss,
+ * including the case where two rounded terms later cancel to a plausible result.
+ */
+export function checkedMul(x: number, y: number): number {
+  return checkSafe(x * y);
+}
+
+/** Returns x + y, throwing RangeError unless the sum is a safe integer (see {@link checkedMul}). */
+export function checkedAdd(x: number, y: number): number {
+  return checkSafe(x + y);
+}
+
+function checkSafe(n: number): number {
+  if (!Number.isSafeInteger(n)) {
+    throw new RangeError(`Integer arithmetic left the exact range (|n| ≤ 2^53 − 1): ${n}`);
+  }
+  return n + 0;
+}
+
 /** The additive identity, 0. */
 export const ZERO: Eisenstein = eis(0, 0);
 
@@ -75,7 +99,11 @@ export function sub(x: Eisenstein, y: Eisenstein): Eisenstein {
 export function mul(x: Eisenstein, y: Eisenstein): Eisenstein {
   const { a, b } = x;
   const { a: c, b: d } = y;
-  return eis(a * c - b * d, a * d + b * c - b * d);
+  const bd = checkedMul(b, d);
+  return eis(
+    checkedAdd(checkedMul(a, c), -bd),
+    checkedAdd(checkedAdd(checkedMul(a, d), checkedMul(b, c)), -bd),
+  );
 }
 
 /**
@@ -92,10 +120,11 @@ export function conj(z: Eisenstein): Eisenstein {
  *
  * This is the squared Euclidean length with the basis vectors at unit length,
  * and it is a non-negative integer, which keeps distance comparisons exact.
+ * Throws RangeError if any intermediate leaves the safe-integer range.
  * N is multiplicative: N(zw) = N(z)N(w) (Hardy & Wright §12.9).
  */
 export function norm(z: Eisenstein): number {
-  return z.a * z.a - z.a * z.b + z.b * z.b;
+  return checkedAdd(checkedAdd(checkedMul(z.a, z.a), -checkedMul(z.a, z.b)), checkedMul(z.b, z.b));
 }
 
 /**

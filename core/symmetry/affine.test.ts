@@ -170,3 +170,11 @@ describe("construction", () => {
     expect(Object.is(affine([1, -0, 0, 1], eis(0, 0)).m[1], 0)).toBe(true);
   });
 });
+
+describe("rotation60 argument validation", () => {
+  it("rejects non-integer and non-finite step counts", () => {
+    for (const k of [1.5, NaN, Infinity, -Infinity]) {
+      expect(() => rotation60(k)).toThrow(RangeError);
+    }
+  });
+});

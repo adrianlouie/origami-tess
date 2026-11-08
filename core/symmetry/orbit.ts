@@ -1,9 +1,8 @@
 /**
  * Orbit tiling: the images of a motif under p6m, within a finite window.
  *
- * Last module of the symmetry layer before the tiled render of step 2.3; it
- * turns a group and a seed into the points and edges a gadget is later placed
- * on. Exact integers throughout.
+ * Last module of the symmetry layer; it turns a group and a seed into the points
+ * and edges that `app/render/svg.ts` draws and gadgets are later placed on. Exact integers throughout.
  *
  * Reference: Armstrong, "Groups and Symmetry", ch. 16 (orbits); the window
  * bound below is the triangle inequality for the hex metric.
@@ -94,12 +93,15 @@ function canonical(e: Edge): Edge {
  * @param group - the p6m group
  * @param motif - seed points and edges
  * @param radius - non-negative safe integer R
- * @throws RangeError if `radius` is not a non-negative safe integer
+ * @throws RangeError if `radius` is not a non-negative safe integer, or a motif edge is zero-length
  */
 export function tile(group: P6m, motif: Motif, radius: number): Tiling {
   checkRadius(radius);
   const found = new Map<string, Edge>();
   for (const e of motif.edges) {
+    if (pointKey(e.from) === pointKey(e.to)) {
+      throw new RangeError("Motif edges must join two distinct points (a crease has length > 0)");
+    }
     const reach = Math.max(hexDistance(e.from), hexDistance(e.to));
     for (const f of windowElements(group, radius, reach)) {
       const p = apply(f, e.from);

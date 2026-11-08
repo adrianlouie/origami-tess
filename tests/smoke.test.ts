@@ -7,8 +7,6 @@ describe("toolchain smoke test", () => {
   });
 
   it("runs a property-based test", () => {
-    fc.assert(
-      fc.property(fc.integer(), fc.integer(), (a, b) => a + b === b + a),
-    );
+    fc.assert(fc.property(fc.integer(), fc.integer(), (a, b) => a + b === b + a));
   });
 });

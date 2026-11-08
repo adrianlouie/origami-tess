@@ -12,7 +12,7 @@
  * ch. 1–2.
  */
 
-import { add, eis, norm, type Eisenstein } from "../lattice/eisenstein";
+import { add, checkedAdd, checkedMul, eis, norm, type Eisenstein } from "../lattice/eisenstein";
 
 /**
  * A 2×2 integer matrix [a, b, c, d] meaning the rows (a, b) and (c, d), acting
@@ -46,7 +46,7 @@ export function affine(m: Matrix, t: Eisenstein): Affine {
     throw new RangeError(`Affine matrix entries must be safe integers, got [${m.join(", ")}]`);
   }
   const [a, b, c, d] = m;
-  const det = a * d - b * c;
+  const det = checkedAdd(checkedMul(a, d), -checkedMul(b, c));
   if (Math.abs(det) !== 1) {
     throw new RangeError(`Affine matrix must have determinant ±1, got ${det}`);
   }
@@ -65,7 +65,13 @@ export function equals(f: Affine, g: Affine): boolean {
 /** Returns f(z) = M·z + t. */
 export function apply(f: Affine, z: Eisenstein): Eisenstein {
   const [a, b, c, d] = f.m;
-  return add(eis(a * z.a + b * z.b, c * z.a + d * z.b), f.t);
+  return add(
+    eis(
+      checkedAdd(checkedMul(a, z.a), checkedMul(b, z.b)),
+      checkedAdd(checkedMul(c, z.a), checkedMul(d, z.b)),
+    ),
+    f.t,
+  );
 }
 
 /**
@@ -77,8 +83,10 @@ export function apply(f: Affine, z: Eisenstein): Eisenstein {
 export function compose(f: Affine, g: Affine): Affine {
   const [a, b, c, d] = f.m;
   const [e, h, i, j] = g.m;
+  const dot = (p: number, q: number, r: number, s: number) =>
+    checkedAdd(checkedMul(p, q), checkedMul(r, s));
   return affine(
-    [a * e + b * i, a * h + b * j, c * e + d * i, c * h + d * j],
+    [dot(a, e, b, i), dot(a, h, b, j), dot(c, e, d, i), dot(c, h, d, j)],
     apply(f, g.t),
   );
 }
@@ -91,7 +99,7 @@ export function compose(f: Affine, g: Affine): Affine {
  */
 export function inverse(f: Affine): Affine {
   const [a, b, c, d] = f.m;
-  const det = a * d - b * c;
+  const det = checkedAdd(checkedMul(a, d), -checkedMul(b, c));
   const inv: Matrix = [det * d, -det * b, -det * c, det * a];
   const t = apply(affine(inv, eis(0, 0)), f.t);
   return affine(inv, eis(-t.a, -t.b));
@@ -112,6 +120,9 @@ export function translation(t: Eisenstein): Affine {
  * @param k - number of 60° steps; any integer
  */
 export function rotation60(k: number): Affine {
+  if (!Number.isSafeInteger(k)) {
+    throw new RangeError(`rotation60 needs an integer number of steps, got ${k}`);
+  }
   const steps = ((k % 6) + 6) % 6;
   let f = IDENTITY;
   const r = affine([1, -1, 1, 0], eis(0, 0));
@@ -152,5 +163,9 @@ export function about(f: Affine, center: Eisenstein): Affine {
  */
 export function isIsometry(f: Affine): boolean {
   const [a, b, c, d] = f.m;
-  return norm(eis(a, c)) === 1 && norm(eis(b, d)) === 1 && norm(eis(a - b, c - d)) === 3;
+  return (
+    norm(eis(a, c)) === 1 &&
+    norm(eis(b, d)) === 1 &&
+    norm(eis(checkedAdd(a, -b), checkedAdd(c, -d))) === 3
+  );
 }

@@ -66,6 +66,17 @@ describe("orbit", () => {
     expect(pts).toEqual(sorted);
   });
 
+  it("returns nothing for an empty motif, and only the origin's orbit at R = 0", () => {
+    expect(orbit(p6m(eis(2, 1)), [], 3)).toEqual([]);
+    expect(orbit(p6m(eis(2, 1)), [eis(3, 1)], 0)).toEqual([]);
+    expect(orbit(p6m(eis(2, 1)), [ZERO], 0)).toEqual([ZERO]);
+  });
+
+  it("still yields in-window images of a motif point that starts outside the window", () => {
+    // (30, 0) lies outside R = 3, but under period 3 the translation by -30 = 3·(-10) maps it to the origin.
+    expect(orbit(p6m(eis(3, 0)), [eis(30, 0)], 3)).toContainEqual(ZERO);
+  });
+
   it("rejects an invalid radius", () => {
     expect(() => orbit(p6m(), [ZERO], -1)).toThrow(RangeError);
     expect(() => orbit(p6m(), [ZERO], 1.5)).toThrow(RangeError);
@@ -76,13 +87,22 @@ const edgeKey = (from: Eisenstein, to: Eisenstein) => {
   const [p, q] = (from.a - to.a || from.b - to.b) <= 0 ? [from, to] : [to, from];
   return `${key(p)}|${key(q)}`;
 };
-const edgeArb = fc.record({ from: point, to: point });
+const edgeArb = fc.record({ from: point, to: point }).filter((e) => key(e.from) !== key(e.to));
 const motifArb: fc.Arbitrary<Motif> = fc.record({
   points: fc.array(point, { maxLength: 2 }),
   edges: fc.array(edgeArb, { maxLength: 2 }),
 });
 
 describe("tile", () => {
+  it("rejects a zero-length edge, which cannot be a crease", () => {
+    const m: Motif = { points: [], edges: [{ from: eis(1, 0), to: eis(1, 0) }] };
+    expect(() => tile(p6m(), m, 2)).toThrow(RangeError);
+  });
+
+  it("returns an empty tiling for an empty motif", () => {
+    expect(tile(p6m(), { points: [], edges: [] }, 3)).toEqual({ points: [], edges: [] });
+  });
+
   it("has the points of orbit(group, motif.points, R)", () => {
     fc.assert(
       fc.property(validPeriod, motifArb, fc.integer({ min: 0, max: 8 }), (period, m, radius) => {

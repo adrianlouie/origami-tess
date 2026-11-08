@@ -37,9 +37,11 @@ export type P6m = {
  *
  * @param z - lattice point
  * @param period - π, nonzero
+ * @throws RangeError if π is zero
  */
 export function inLattice(z: Eisenstein, period: Eisenstein): boolean {
   const n = norm(period);
+  if (n === 0) throw new RangeError("inLattice period must be nonzero");
   const w = mul(z, conj(period));
   return w.a % n === 0 && w.b % n === 0;
 }
@@ -79,7 +81,6 @@ export function p6m(period: Eisenstein = ONE): P6m {
  */
 export function contains(group: P6m, f: Affine): boolean {
   return (
-    group.pointGroup.some((g) => g.m.every((v, i) => v === f.m[i])) &&
-    inLattice(f.t, group.period)
+    group.pointGroup.some((g) => g.m.every((v, i) => v === f.m[i])) && inLattice(f.t, group.period)
   );
 }

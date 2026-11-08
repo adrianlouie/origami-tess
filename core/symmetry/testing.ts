@@ -1,7 +1,7 @@
 /**
  * Shared test helper for `core/symmetry`: group-axiom checking and random p6m elements.
  *
- * Test-only; nothing in the data flow imports it. It lives here so the p6m, orbit and
+ * Test-only (it imports vitest, so production code must never import it); nothing in the data flow imports it. It lives here so the p6m, orbit and
  * generic-group tests assert the same axioms.
  */
 

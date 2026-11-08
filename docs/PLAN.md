@@ -29,7 +29,11 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - `tilingToSvg` in app/render/svg.ts; `gridToSvg` output is unchanged
   - Properties: closure under the group, matches brute force, circle count = |orbit|, all inside the viewBox
   - Use a period other than 1 in examples (under p6m(1) every orbit fills the lattice)
-- [ ] 2.4 Phase 2 audit (`audit/phase-2`): debug and test Phases 1 and 2 per the `CLAUDE.md` "Phase audits" section
+- [x] 2.4 Phase 2 audit (`audit/phase-2`): debug and test Phases 1 and 2 per the `CLAUDE.md` "Phase audits" section
+  - Checked integer arithmetic (`checkedMul`/`checkedAdd`) so overflow past 2⁵³ throws instead of rounding
+  - `rotation60`, `inLattice`, SVG options and zero-length motif edges are validated
+  - `svgDocument` no longer spreads large arrays; new edge-case, BFS and tile→render property tests
+  - Prettier enforced: `format:check` in CI
 
 ## Phase 3: Gadgets and validation
 - [ ] 3.1 Crease graph data structure — test: Euler relation on faces
