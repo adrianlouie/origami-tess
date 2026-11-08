@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
-import { eis, equals, ZERO } from "../lattice/eisenstein";
+import { add, eis, equals, ZERO, type Eisenstein } from "../lattice/eisenstein";
+import { hexDistance } from "../lattice/grid";
 import { hexagonTwistCreases } from "../gadgets/hexagon-twist";
 import { starTwistCreases } from "../gadgets/star-twist";
 import { triangleTwistCreases } from "../gadgets/triangle-twist";
-import type { Crease } from "../gadgets/crease";
+import { hexagonFrame, type Crease } from "../gadgets/crease";
 import { fromSegments, type Assignment, type CreasePattern } from "../pattern/crease-pattern";
 import { checkLocalFlatFoldability, interiorVertices } from "../validate/local-flat-foldability";
-import { localMvClauses, satisfies, type MvFormula } from "./clauses";
+import { localMvClauses, satisfies, type Clause, type MvFormula } from "./clauses";
 import { mvSolutions, solveFormula, solveMv, withMvAssignment } from "./solver";
 
 /** The gadget's creases with the given edge indices overridden; edge i is creases[i]. */
@@ -269,5 +270,175 @@ describe("edge cases", () => {
     const cp = fromSegments([], [{ from: ZERO, to: eis(1, 0), assignment: "U" }]);
     expect(withMvAssignment(cp, [true]).edges[0]!.assignment).toBe("M");
     expect(withMvAssignment(cp, [false]).edges[0]!.assignment).toBe("V");
+  });
+});
+
+describe("malformed formulas", () => {
+  const formula = (variableCount: number, literals: number[][]): MvFormula => ({
+    variableCount,
+    kawasaki: [],
+    clauses: literals.map((l) => ({ kind: "maekawa", vertex: 0, literals: l })),
+  });
+
+  it("rejects a zero literal, a literal beyond variableCount and a non-integer literal", () => {
+    for (const bad of [[0], [-3], [3], [1.5], [Number.NaN]]) {
+      expect(() => solveFormula(formula(2, [bad]))).toThrow(RangeError);
+      expect(() => [...mvSolutions(formula(2, [bad]))]).toThrow(RangeError);
+    }
+  });
+
+  it("rejects a negative or non-integer variableCount", () => {
+    expect(() => solveFormula(formula(-1, []))).toThrow(RangeError);
+    expect(() => solveFormula(formula(1.5, []))).toThrow(RangeError);
+  });
+});
+
+describe("withMvAssignment immutability", () => {
+  it("returns a frozen pattern with frozen edges, like creasePattern", () => {
+    const cp = fromSegments([], [{ from: ZERO, to: eis(1, 0), assignment: "U" }]);
+    const out = withMvAssignment(cp, [true]);
+    expect(Object.isFrozen(out)).toBe(true);
+    expect(Object.isFrozen(out.edges)).toBe(true);
+  });
+});
+
+describe("DPLL against brute force on random CNF (Davis–Logemann–Loveland 1962)", () => {
+  const cnf = fc.integer({ min: 1, max: 8 }).chain((n) =>
+    fc.record({
+      n: fc.constant(n),
+      clauses: fc.array(
+        fc.array(
+          fc.tuple(fc.integer({ min: 1, max: n }), fc.boolean()).map(([v, neg]) => (neg ? -v : v)),
+          { maxLength: 4 },
+        ),
+        { maxLength: 24 },
+      ),
+    }),
+  );
+  const toFormula = (n: number, clauses: number[][]): MvFormula => ({
+    variableCount: n,
+    kawasaki: [],
+    clauses: clauses.map((literals): Clause => ({ kind: "maekawa", vertex: 0, literals })),
+  });
+
+  it("solveFormula is sat exactly when some assignment satisfies, and its model does", () => {
+    fc.assert(
+      fc.property(cnf, ({ n, clauses }) => {
+        const f = toFormula(n, clauses);
+        const result = solveFormula(f);
+        const models = bruteForce(f);
+        expect(result.status === "sat").toBe(models.length > 0);
+        if (result.status === "sat") expect(satisfies(f, result.assignment)).toBe(true);
+      }),
+    );
+  });
+
+  it("mvSolutions yields exactly the brute-force models over the constrained variables", () => {
+    fc.assert(
+      fc.property(cnf, ({ n, clauses }) => {
+        const f = toFormula(n, clauses);
+        const got = [...mvSolutions(f)].map((a) => a.join());
+        expect(new Set(got).size).toBe(got.length);
+        expect(got.sort()).toEqual(
+          bruteForce(f)
+            .map((a) => a.join())
+            .sort(),
+        );
+      }),
+    );
+  });
+});
+
+describe("determinism", () => {
+  it("solves the same pattern to the same result, and mvSolutions starts with that result", () => {
+    for (const { creases } of gadgets) {
+      const cp = stripped(creases);
+      const first = solveMv(cp);
+      expect(solveMv(cp)).toEqual(first);
+      const next = mvSolutions(localMvClauses(cp)).next();
+      expect(first.status).toBe("sat");
+      if (first.status === "sat") expect(next.value).toEqual(first.assignment);
+    }
+  });
+});
+
+/**
+ * Whole lattice lines in a radius-3 hexagon, as unit edges inside a "B" frame.
+ *
+ * A line through a lattice point has equal opposite sectors, so every crossing passes Kawasaki
+ * (alternate sectors sum to π); the lines are therefore a source of non-gadget Maekawa and
+ * Big-Little-Big instances. Edges between two frame points are left to the frame.
+ */
+function lineArrangement(lines: { dir: number; offset: number }[]): Crease[] {
+  const dirs = [eis(1, 0), eis(0, 1), eis(1, 1)];
+  const creases: Crease[] = hexagonFrame(3);
+  const seen = new Set<string>();
+  for (const { dir, offset } of lines) {
+    const d = dirs[dir]!;
+    const base = dir === 0 ? eis(0, offset) : dir === 1 ? eis(offset, 0) : eis(offset, 0);
+    const points: Eisenstein[] = [];
+    for (let t = -8; t <= 8; t++) {
+      const p = add(base, { a: d.a * t, b: d.b * t });
+      if (hexDistance(p) <= 3) points.push(p);
+    }
+    for (let i = 0; i + 1 < points.length; i++) {
+      const from = points[i]!;
+      const to = points[i + 1]!;
+      if (hexDistance(from) === 3 && hexDistance(to) === 3) continue;
+      const key = `${from.a},${from.b}-${to.a},${to.b}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      creases.push({ from, to, assignment: "U" });
+    }
+  }
+  return creases;
+}
+
+describe("line arrangements, with the validator as an independent oracle", () => {
+  const clean = (cp: CreasePattern): boolean => {
+    const r = checkLocalFlatFoldability(cp);
+    return r.kawasaki.length + r.maekawa.length + r.unassigned.length + r.bigLittleBig.length === 0;
+  };
+
+  it("sat means the validator is clean; unsat means no completion of the free creases is", () => {
+    const lines = fc.array(
+      fc.record({ dir: fc.integer({ min: 0, max: 2 }), offset: fc.integer({ min: -2, max: 2 }) }),
+      { minLength: 1, maxLength: 6 },
+    );
+    fc.assert(
+      fc.property(
+        lines,
+        fc.array(fc.double({ min: 0, max: 1, noNaN: true }), { minLength: 200, maxLength: 200 }),
+        fc.array(fc.nat(199), { maxLength: 8 }),
+        (ls, noise, freed) => {
+          const creases = lineArrangement(ls);
+          const base = solveMv(fromSegments([], creases));
+          fc.pre(base.status === "sat");
+          if (base.status !== "sat") return;
+          const foldable = creases.flatMap((_, i) => (creases[i]!.assignment === "U" ? [i] : []));
+          // Start from a valid assignment, flip about one crease in ten, then free a few.
+          const free = new Set(freed.map((f) => foldable[f % foldable.length]!));
+          const overrides = new Map<number, Assignment>();
+          foldable.forEach((i, k) => {
+            if (free.has(i)) return;
+            const mountain = base.assignment[i]! !== noise[k % noise.length]! < 0.1;
+            overrides.set(i, mountain ? "M" : "V");
+          });
+          const cp = build(creases, overrides);
+          const result = solveMv(cp);
+          expect(result.status).not.toBe("kawasaki");
+          const freeList = [...free];
+          let completable = false;
+          for (let bits = 0; bits < 2 ** freeList.length && !completable; bits++) {
+            const o = new Map(overrides);
+            freeList.forEach((e, k) => o.set(e, (bits >> k) & 1 ? "M" : "V"));
+            completable = clean(build(creases, o));
+          }
+          expect(result.status === "sat").toBe(completable);
+          if (result.status === "sat")
+            expect(clean(withMvAssignment(cp, result.assignment))).toBe(true);
+        },
+      ),
+    );
   });
 });

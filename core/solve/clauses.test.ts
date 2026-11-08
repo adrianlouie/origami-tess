@@ -97,6 +97,20 @@ describe("vertexClauses", () => {
     }
   });
 
+  it("makes degree 0 unsatisfiable and degree 2 allow only MM or VV, with no Big-Little-Big", () => {
+    expect(vertexClauses(0, [], [])).toEqual([{ kind: "maekawa", vertex: 0, literals: [] }]);
+    const dirs = [eis(1, 0), eis(-1, 0)];
+    const clauses = vertexClauses(0, [0, 1], dirs);
+    expect(clauses.every((c) => c.kind === "maekawa")).toBe(true);
+    const formula = { variableCount: 2, clauses, kawasaki: [] };
+    expect([0, 1, 2, 3].map((bits) => satisfies(formula, bitsToBool(bits, 2)))).toEqual([
+      true,
+      false,
+      false,
+      true,
+    ]);
+  });
+
   it("gives the empty clause at odd degree", () => {
     const dirs = [eis(1, 0), eis(0, 1), eis(-1, -1)];
     const clauses = vertexClauses(0, [0, 1, 2], dirs);
