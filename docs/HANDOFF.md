@@ -1,35 +1,35 @@
-# Handoff
-
-Overwrite this note at the end of each session. Keep it to the latest state only.
-
 ## Last session: 2026-11-07
-Merged step 2.1 ([PR #9](https://github.com/adrianlouie/origami-tess/pull/9)) and finished step 2.2, p6m generators and orbit tiling ([PR #10](https://github.com/adrianlouie/origami-tess/pull/10), open, CI green).
+Finished step 2.3, motif + group → tiled render ([PR #11](https://github.com/adrianlouie/origami-tess/pull/11), open, CI green). Also opened [PR #12](https://github.com/adrianlouie/origami-tess/pull/12), docs only: new `CLAUDE.md` rules for phase audits and for asking about a plan after each merge (CI was pending at last check).
 
 ## State
 - Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`.
-- `main` has the scaffold, CI, the `/next-step` and `/handoff` commands, Phase 1 (lattice) and step 2.1 (affine maps, `Group<T>`, `closure`).
-- PR #10 (branch `step/2-2-p6m-orbit-tiling`) adds `core/symmetry/p6m.ts` (`p6m`, `P6m`, `inLattice`, `contains`), `core/symmetry/orbit.ts` (`orbit`) and test helpers in `core/symmetry/testing.ts`. Tests, typecheck and lint pass; the PR ticks 2.2 in the plan.
+- `main` has everything through step 2.2. PR #11 (branch `step/2-3-motif-tiled-render`) adds `core/symmetry/motif.ts` (`Motif`, `Tiling`), `tile` in `core/symmetry/orbit.ts` and `tilingToSvg` in `app/render/svg.ts`; it ticks 2.3 and adds an audit step to the plan. Tests, typecheck and lint pass.
+- PR #12 (branch `docs/claude-md-audit-and-planning`) changes only `CLAUDE.md`; it belongs to no plan step.
 - No uncommitted work apart from the untracked `.idea/` folder (IDE files, deliberately not committed).
 
 ## Next step
-Run `/next-step`: it merges PR #10 if CI is green, then starts 2.3, motif + group → tiled render (reuse `orbit` and the SVG renderer in `app/render/`). First thing to do: decide how a motif is drawn (points only, or edges between them) and add a snapshot test of a small tiling.
+Two PRs are open, so `/next-step` will stop and ask which to merge: merge #11 first (it ticks 2.3), then #12. After the merge, `CLAUDE.md` now says to ask whether you want a detailed plan for the next step before coding.
+
+Then do the **Phase 2 audit** (plan step 2.4, branch `audit/phase-2`) before starting Phase 3: run the checks in the `CLAUDE.md` "Phase audits" section over Phases 1 and 2. After that, step 3.1, the crease graph.
 
 ## Gotchas and decisions
 - `/next-step` squash-merges the open PR (CI green only; stops if red, pending or ambiguous).
 - Each step's own PR ticks its plan box. Write the handoff right after opening the PR and commit it to the same branch.
-- Never add a `Co-Authored-By: Claude` trailer to commits, and no "Generated with Claude Code" footer on PR descriptions. This overrides the default attribution reminder; I slipped once in 2.2 and amended before opening the PR.
+- Never add a `Co-Authored-By: Claude` trailer to commits, and no "Generated with Claude Code" footer on PR descriptions. This overrides the default attribution reminder.
 - Language is TypeScript. Python is only an optional `sympy` scratchpad; Rust→WASM only if the Phase 5 solver is too slow.
 - Lattice math uses exact integers (Eisenstein), not floats. Floats appear only in `app/render/`.
 - Eisenstein uses `number`, not `bigint`. Property tests bound coordinates to ±1000 so that `N(z)N(w)` stays below 2⁵³.
-- `toCartesian` maps a + bω to (a − b/2, b√3/2). `gridToSvg` negates y, since SVG's y-axis points down.
+- `toCartesian` maps a + bω to (a − b/2, b√3/2). `gridToSvg` and `tilingToSvg` negate y, since SVG's y-axis points down.
 - Rendered floats are written to 6 decimals (`RENDER_PRECISION`), and float comparisons use `RENDER_TOLERANCE` = 1e-5. That is the one shared tolerance.
 - An `Affine` is z ↦ M·z + t with M a 2×2 integer matrix on (a, b) coordinates and det M = ±1, so inverses stay integral. `compose(f, g)` applies g first.
-- p6m is πΛ ⋊ D6 with period π. `p6m(π)` throws unless πΛ is mirror-symmetric (π̄ ∈ πΛ), since otherwise the group is p6. Valid examples: 1, 2, 1−ω, 2+ω (norm 3). Invalid: 3+ω (norm 7).
-- `orbit(group, motif, R)` is cut by the point's hex distance, not by translation count, so closure holds exactly. The enumeration bound is derived in its TSDoc.
+- p6m is πΛ ⋊ D6 with period π. `p6m(π)` throws unless πΛ is mirror-symmetric (π̄ ∈ πΛ). Valid examples: 1, 2, 1−ω, 2+ω (norm 3). Invalid: 3+ω (norm 7).
+- `orbit` and `tile` share `windowElements`, which enumerates D6 and translations by a bound derived in its TSDoc. Both cut by the image's hex distance, so closure holds exactly. `tile` keeps an edge only when both ends are in the window; edges are undirected and deduplicated.
+- A `Motif` is points plus edges; `Tiling` is the same type. Under `p6m(1)` every orbit fills the lattice, so examples use a larger period (the snapshot uses 2+ω).
 - Mirror lines of D6 are at multiples of 30°; (2,1) lies on one, so use (3,1) for a generic point in tests.
-- Prettier flags 8 files in `core/symmetry`, older ones included. It is not enforced by lint or CI.
+- The brute-force test for `tile` expands by explicit translations, not `closure`, because the group is infinite and `closure` would throw.
+- Prettier flags older files in `core/symmetry`. It is not enforced by lint or CI.
 - Layer ordering (Phase 5) is the hardest piece.
 - A schematic crease-pattern mockup was shown in chat; it is not verified foldable.
 
 ## Open questions
-- Should Prettier be enforced (lint or CI), or dropped from the repo?
+- Should Prettier be enforced (lint or CI), or dropped from the repo? Worth settling in the Phase 2 audit.

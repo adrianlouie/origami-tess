@@ -23,7 +23,13 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
 ## Phase 2: Symmetry
 - [x] 2.1 Affine transform and group type — test: group axioms hold
 - [x] 2.2 p6m generators and orbit tiling — test: orbit closed under the group
-- [ ] 2.3 Motif + group → tiled render
+- [x] 2.3 Motif + group → tiled render — test: snapshot of a p6m(2+ω) tiling at R=3
+  - `Motif = { points, edges }` (core/symmetry/motif.ts); edges reuse `Edge` from grid.ts
+  - `tile(group, motif, R)` in orbit.ts shares the window enumeration with `orbit`; an edge is kept when both ends lie within R
+  - `tilingToSvg` in app/render/svg.ts; `gridToSvg` output is unchanged
+  - Properties: closure under the group, matches brute force, circle count = |orbit|, all inside the viewBox
+  - Use a period other than 1 in examples (under p6m(1) every orbit fills the lattice)
+- [ ] 2.4 Phase 2 audit (`audit/phase-2`): debug and test Phases 1 and 2 per the `CLAUDE.md` "Phase audits" section
 
 ## Phase 3: Gadgets and validation
 - [ ] 3.1 Crease graph data structure — test: Euler relation on faces

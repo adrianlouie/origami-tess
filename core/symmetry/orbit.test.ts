@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
-import { eis, ZERO, type Eisenstein } from "../lattice/eisenstein";
+import { eis, mul, ZERO, type Eisenstein } from "../lattice/eisenstein";
 import { hexDistance, triangularGrid } from "../lattice/grid";
-import { apply } from "./affine";
-import { orbit } from "./orbit";
+import { apply, compose, translation } from "./affine";
+import { orbit, tile } from "./orbit";
+import type { Motif } from "./motif";
 import { contains, p6m } from "./p6m";
 import { randomElement, validPeriod, wordArb } from "./testing";
 
@@ -68,5 +69,92 @@ describe("orbit", () => {
   it("rejects an invalid radius", () => {
     expect(() => orbit(p6m(), [ZERO], -1)).toThrow(RangeError);
     expect(() => orbit(p6m(), [ZERO], 1.5)).toThrow(RangeError);
+  });
+});
+
+const edgeKey = (from: Eisenstein, to: Eisenstein) => {
+  const [p, q] = (from.a - to.a || from.b - to.b) <= 0 ? [from, to] : [to, from];
+  return `${key(p)}|${key(q)}`;
+};
+const edgeArb = fc.record({ from: point, to: point });
+const motifArb: fc.Arbitrary<Motif> = fc.record({
+  points: fc.array(point, { maxLength: 2 }),
+  edges: fc.array(edgeArb, { maxLength: 2 }),
+});
+
+describe("tile", () => {
+  it("has the points of orbit(group, motif.points, R)", () => {
+    fc.assert(
+      fc.property(validPeriod, motifArb, fc.integer({ min: 0, max: 8 }), (period, m, radius) => {
+        const group = p6m(period);
+        expect(tile(group, m, radius).points).toEqual(orbit(group, m.points, radius));
+      }),
+    );
+  });
+
+  it("is closed under the group: g(e) is a tiled edge whenever both ends stay in the window", () => {
+    fc.assert(
+      fc.property(
+        validPeriod,
+        motifArb,
+        fc.integer({ min: 0, max: 8 }),
+        wordArb,
+        (period, m, radius, word) => {
+          const group = p6m(period);
+          const t = tile(group, m, radius);
+          const members = new Set(t.edges.map((e) => edgeKey(e.from, e.to)));
+          const f = randomElement(group, word);
+          for (const e of t.edges) {
+            const p = apply(f, e.from);
+            const q = apply(f, e.to);
+            if (hexDistance(p) <= radius && hexDistance(q) <= radius) {
+              expect(members.has(edgeKey(p, q))).toBe(true);
+            }
+          }
+        },
+      ),
+    );
+  });
+
+  it("matches a brute-force expansion by D6 and explicit translations (completeness)", () => {
+    fc.assert(
+      fc.property(validPeriod, motifArb, fc.integer({ min: 0, max: 4 }), (period, m, radius) => {
+        const group = p6m(period);
+        const expected = new Set<string>();
+        // Translations up to 40 steps cover every edge of a window of radius <= 4 with motif coordinates <= 10.
+        for (let u = -40; u <= 40; u++) {
+          for (let v = -40; v <= 40; v++) {
+            const lam = mul(period, eis(u, v));
+            for (const g of group.pointGroup) {
+              const f = compose(translation(lam), g);
+              for (const e of m.edges) {
+                const p = apply(f, e.from);
+                const q = apply(f, e.to);
+                if (hexDistance(p) <= radius && hexDistance(q) <= radius) {
+                  expected.add(edgeKey(p, q));
+                }
+              }
+            }
+          }
+        }
+        const got = tile(group, m, radius).edges.map((e) => edgeKey(e.from, e.to));
+        expect(new Set(got)).toEqual(expected);
+      }),
+      { numRuns: 20 },
+    );
+  });
+
+  it("has no duplicate edges, counting {p, q} and {q, p} as one", () => {
+    fc.assert(
+      fc.property(validPeriod, motifArb, fc.integer({ min: 0, max: 8 }), (period, m, radius) => {
+        const keys = tile(p6m(period), m, radius).edges.map((e) => edgeKey(e.from, e.to));
+        expect(new Set(keys).size).toBe(keys.length);
+      }),
+    );
+  });
+
+  it("rejects an invalid radius", () => {
+    expect(() => tile(p6m(), { points: [], edges: [] }, -1)).toThrow(RangeError);
+    expect(() => tile(p6m(), { points: [], edges: [] }, 1.5)).toThrow(RangeError);
   });
 });
