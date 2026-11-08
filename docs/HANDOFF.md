@@ -1,13 +1,13 @@
 ## Last session: 2026-11-07
-Ran the Phase 3 audit (step 3.7, branch `audit/phase-3`). Tests 184 → 262; typecheck, lint and `format:check` pass. Step 3.6 (#19) is merged.
+Did step 4.1 (branch `step/4-1-local-mv-clauses`). Tests 262 → 282; typecheck, lint and `format:check` pass. The Phase 3 audit (#20) is merged.
 
 ## State
 - Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`.
-- `main` has everything through step 3.6. Branch `audit/phase-3` holds the audit and ticks 3.7.
+- `main` has everything through the Phase 3 audit (3.7). Branch `step/4-1-local-mv-clauses` holds step 4.1.
 - `.idea/` is excluded locally through `.git/info/exclude`, so the tree is otherwise clean.
 
 ## Next step
-Merge the audit PR (`/next-step`), then step **4.1** (local M/V constraints as Boolean clauses). `CLAUDE.md` says to ask whether you want a detailed plan before coding.
+Merge the 4.1 PR (`/next-step`), then step **4.2** (SAT/backtracking solver; test: Maekawa holds at every vertex). `CLAUDE.md` says to ask whether you want a detailed plan before coding.
 
 ## Phase 3 audit findings (all fixed unless noted)
 - **Nested components were skipped by the validators.** A component inside a bounded face has an outer walk with area ≤ 0, which was discarded, so its vertices never reached `visits === degree` and passed vacuously. `CreasePattern.holes[i]` now lists the outer walks nested directly in `faces[i]` (smallest containing face of another component, by `windingNumber`), and `interiorVertices` counts them. A nested tree's leaves are now flagged (odd degree).
@@ -61,6 +61,12 @@ Merge the audit PR (`/next-step`), then step **4.1** (local M/V constraints as B
 - The star twist (`starTwist(s)`) is a spoked hexagram defined from first principles (no reference photos were ever in the repo): a collapsed star, not a rotating twist. Frame radius is fixed at 3s. Its M/V assignment is only half-turn symmetric because the centre needs 2 M / 4 V (a 3-fold or 6-fold M/V pattern gives 3/3 or 6/0 there). It is chiral; the mirror star is a reflection, left for placement (8.1).
 - **Correction to my own plan:** the approved 3.6 plan kept both halves of the outer hexagon at each tip. The validators showed that fails Kawasaki (tip sectors π/3, π/3, π/3, π). The fix was found by an exhaustive search of 6-fold symmetric crease sets on the radius-3 grid (8 pass Kawasaki at every interior vertex, and each has valid M/V assignments); the sparsest was used. Hand-checking geometry is not enough: run the validators.
 - Whether the star, like the triangle twist, folds flat globally is a Phase 5 question; only the local conditions are tested.
+
+## Step 4.1 notes
+- `localMvClauses(cp)` returns `{ variableCount, clauses, kawasaki }`; each clause has `kind` (`fixed` | `maekawa` | `big-little-big`) and an `edge` or `vertex`, so 4.2 can name the vertex that makes a pattern infeasible. Step 4.2 should refuse a formula with a non-empty `kawasaki` list.
+- The formula is exact for Maekawa + Big-Little-Big, both necessary only; a solution still needs Phase 5 layer ordering.
+- Enumeration is 2ⁿ per vertex, capped at degree 12. Revisit only if a tessellation has a high-degree vertex.
+- `smallSectorRuns` was split out of `bigLittleBigFlat` (behaviour unchanged); `foldingCreases` out of `checkLocalFlatFoldability`.
 
 ## Open questions
 - None.
