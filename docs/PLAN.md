@@ -36,7 +36,12 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - Prettier enforced: `format:check` in CI
 
 ## Phase 3: Gadgets and validation
-- [ ] 3.1 Crease graph data structure — test: Euler relation on faces
+- [x] 3.1 Crease graph data structure — test: Euler relation on faces
+  - `core/lattice/direction.ts`: exact `cross`, `compareAngle`, `orientation`, `onSegment` (no `atan2`)
+  - `core/pattern/crease-pattern.ts`: `creasePattern`, `fromSegments`, `faceCount`, `componentCount`, `faceDoubledArea`
+  - Faces by half-edge traversal; a walk with positive doubled area is bounded, so F = bounded + 1 and V − E + F = 1 + C
+  - Planarity is enforced (crossings, T-junctions, duplicates throw RangeError), not repaired
+  - Assignments follow FOLD: `M | V | B | F | U`, default `U`
 - [ ] 3.2 Kawasaki and Maekawa validators — test: known-valid pass, known-invalid fail
 - [ ] 3.3 Hexagon twist gadget — test: every vertex satisfies Kawasaki
 - [ ] 3.4 Triangle twist and star twist gadgets

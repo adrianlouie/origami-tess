@@ -1,26 +1,13 @@
 ## Last session: 2026-11-07
-Ran the Phase 2 audit (plan step 2.4, branch `audit/phase-2`, PR to be opened). Fixed seven bugs, added 15 tests (88 → 103), enforced Prettier. PRs #11 and #12 are merged.
+Implemented plan step 3.1 (branch `step/3-1-crease-graph`, PR open). Added exact direction predicates and the crease graph. Tests 103 → 130; typecheck, lint and `format:check` pass. The Phase 2 audit PR (#13) is merged.
 
 ## State
 - Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`.
-- `main` has everything through step 2.3 plus the `CLAUDE.md` audit and planning rules. Branch `audit/phase-2` holds the audit; it ticks 2.4. Tests, typecheck, lint and `format:check` pass.
+- `main` has everything through the Phase 2 audit. Branch `step/3-1-crease-graph` holds 3.1 and ticks it.
 - No uncommitted work apart from the untracked `.idea/` folder (IDE files, deliberately not committed).
 
-## Audit findings (Phase 2)
-| # | Finding | Outcome |
-|---|---|---|
-| F1 | `norm` returned a wrong unsafe number near 2³⁰ | Fixed: checked arithmetic throws RangeError |
-| F2 | `mul`, `apply`, `compose`, `isIsometry`, `hexDistance` could round before the final check | Fixed: every intermediate uses `checkedMul`/`checkedAdd`; BigInt property tests |
-| F3 | `rotation60(1.5)` / `NaN` accepted | Fixed: RangeError |
-| F4 | `svgDocument` stack overflow at grid R = 200 (`Math.min(...xs)`) | Fixed: single loop |
-| F5, F6 | Stale `Edge`, `svg.ts` and `orbit.ts` docs | Fixed |
-| F7 | `inLattice` with period 0 returned a silent false | Fixed: RangeError |
-| F8 | SVG options unvalidated | Fixed: RangeError |
-| extra | `tile` accepted zero-length motif edges | Now rejected |
-Verified correct: the `windowElements` bound, the p6m mirror condition, the `isIsometry` argument, the `rot60` and conj formulas, grid V/E/F counts. Both SVG snapshots were rendered to PNG and checked by eye: a six-fold symmetric hexagonal grid, and a six-fold tiling of rhombi with dots at the orbit points. The snapshots are byte-identical to before.
-
 ## Next step
-Merge the audit PR (`/next-step`), then step **3.1**, the crease graph data structure (test: Euler relation on faces). `CLAUDE.md` says to ask whether you want a detailed plan before coding.
+Merge the 3.1 PR (`/next-step`), then step **3.2**, the Kawasaki and Maekawa validators (test: known-valid pass, known-invalid fail). `CLAUDE.md` says to ask whether you want a detailed plan before coding.
 
 ## Gotchas and decisions
 - `/next-step` squash-merges the open PR (CI green only; stops if red, pending or ambiguous).
@@ -38,6 +25,12 @@ Merge the audit PR (`/next-step`), then step **3.1**, the crease graph data stru
 - A `Motif` is points plus edges; `Tiling` is the same type. Under `p6m(1)` every orbit fills the lattice, so examples use a larger period (the snapshot uses 2+ω).
 - Mirror lines of D6 are at multiples of 30°; (2,1) lies on one, so use (3,1) for a generic point in tests.
 - The brute-force test for `tile` expands by explicit translations, not `closure`, because the group is infinite and `closure` would throw.
+- `cross(u, v) = ad − bc` has the exact sign of the Cartesian cross product (the √3/2 factor is positive). Angular order uses `halfPlane` then `cross`; no floats.
+- `CreasePattern.faces` lists bounded faces only (outer boundary walks, counter-clockwise); the unbounded face is implicit, so `faceCount = faces.length + 1`. A component nested inside a face is not listed as a hole of it.
+- `rotation[i]` is vertex i's edge indices counter-clockwise from +x. Step 3.2 needs this: the sector angles between consecutive edges are what Kawasaki sums.
+- `creasePattern` rejects non-planar input (crossings, a vertex inside an edge, duplicates, self-loops) instead of splitting edges. Splitting would be its own step.
+- Half-edge h = 2e is v0→v1 and 2e + 1 is v1→v0, so the twin is `h ^ 1`.
+- `noUncheckedIndexedAccess` is on, so array reads need `at(...)`, `?.` or `!`.
 - Layer ordering (Phase 5) is the hardest piece.
 - A schematic crease-pattern mockup was shown in chat; it is not verified foldable.
 
