@@ -135,6 +135,37 @@ describe("tilingToSvg", () => {
     );
   });
 
+  it("keeps everything inside the viewBox for random motifs (tile → render interface)", () => {
+    const pt = fc.tuple(fc.integer({ min: -6, max: 6 }), fc.integer({ min: -6, max: 6 }));
+    const edge = fc
+      .tuple(pt, pt)
+      .filter(([p, q]) => p[0] !== q[0] || p[1] !== q[1])
+      .map(([p, q]) => ({ from: eis(...p), to: eis(...q) }));
+    const motifs = fc.record({
+      points: fc.array(pt.map(([a, b]) => eis(a, b)), { maxLength: 3 }),
+      edges: fc.array(edge, { maxLength: 3 }),
+    });
+    fc.assert(
+      fc.property(validPeriod, motifs, fc.integer({ min: 0, max: 5 }), (period, m, r) => {
+        const svg = tilingToSvg(tile(p6m(period), m, r));
+        const [x, y, w, h] = parseViewBox(svg);
+        const pts = [
+          ...parseLines(svg).flatMap((l) => [
+            [l.x1, l.y1],
+            [l.x2, l.y2],
+          ]),
+          ...parseCircles(svg).map((c) => [c.cx, c.cy]),
+        ];
+        for (const [px, py] of pts) {
+          expect(px!).toBeGreaterThanOrEqual(x);
+          expect(px!).toBeLessThanOrEqual(x + w);
+          expect(py!).toBeGreaterThanOrEqual(y);
+          expect(py!).toBeLessThanOrEqual(y + h);
+        }
+      }),
+    );
+  });
+
   it("preserves edge length: every tiled line is as long as the motif edge (D6 and translations are isometries)", () => {
     fc.assert(
       fc.property(validPeriod, fc.integer({ min: 1, max: 6 }), (period, r) => {

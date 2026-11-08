@@ -168,3 +168,27 @@ describe("triangularGrid argument validation", () => {
     expect(() => triangularGrid(NaN)).toThrow(RangeError);
   });
 });
+
+describe("hexDistance agrees with graph distance", () => {
+  it("equals the breadth-first shortest path from the origin on the R = 6 grid", () => {
+    const grid = triangularGrid(6);
+    const k = (z: Eisenstein) => `${z.a},${z.b}`;
+    const adj = new Map<string, Eisenstein[]>();
+    for (const v of grid.vertices) adj.set(k(v), []);
+    for (const e of grid.edges) {
+      adj.get(k(e.from))!.push(e.to);
+      adj.get(k(e.to))!.push(e.from);
+    }
+    const dist = new Map<string, number>([[k(eis(0, 0)), 0]]);
+    const queue: Eisenstein[] = [eis(0, 0)];
+    for (const z of queue) {
+      for (const n of adj.get(k(z))!) {
+        if (!dist.has(k(n))) {
+          dist.set(k(n), dist.get(k(z))! + 1);
+          queue.push(n);
+        }
+      }
+    }
+    for (const v of grid.vertices) expect(hexDistance(v)).toBe(dist.get(k(v)));
+  });
+});
