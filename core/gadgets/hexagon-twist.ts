@@ -10,16 +10,9 @@
  * Gjerde, "Origami Tessellations" (2009).
  */
 
-import { add, eis, rot60, type Eisenstein } from "../lattice/eisenstein";
+import { add, eis } from "../lattice/eisenstein";
 import { fromSegments, type CreasePattern } from "../pattern/crease-pattern";
-import { scale, type Crease } from "./crease";
-
-/** Rotates z by k·60° (k·π/3 radians) counter-clockwise. */
-function rotate(z: Eisenstein, k: number): Eisenstein {
-  let r = z;
-  for (let i = 0; i < k; i++) r = rot60(r);
-  return r;
-}
+import { hexagonFrame, rotate, scale, type Crease } from "./crease";
 
 /**
  * Lists the creases of a hexagon twist of side s inside a hexagonal frame of radius R.
@@ -60,16 +53,7 @@ export function hexagonTwistCreases(side: number, frameRadius: number): Crease[]
     creases.push({ from: p, to: add(p, scale(rotate(eis(1, 0), k), length)), assignment: "M" });
     creases.push({ from: p, to: add(p, scale(rotate(eis(1, 0), k + 1), length)), assignment: "V" });
   }
-  // The ring walks from each corner R·uᵏ toward R·uᵏ⁺¹ along uᵏ⁺²: R unit steps per side.
-  for (let k = 0; k < 6; k++) {
-    const step = rotate(eis(1, 0), k + 2);
-    let p = scale(rotate(eis(1, 0), k), frameRadius);
-    for (let i = 0; i < frameRadius; i++) {
-      const q = add(p, step);
-      creases.push({ from: p, to: q, assignment: "B" });
-      p = q;
-    }
-  }
+  creases.push(...hexagonFrame(frameRadius));
   return creases;
 }
 

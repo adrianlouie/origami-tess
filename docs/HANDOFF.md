@@ -1,13 +1,13 @@
 ## Last session: 2026-11-07
-Implemented plan step 3.5, the triangle twist (branch `step/3-5-triangle-twist-gadget`). Tests 168 → 175; typecheck, lint and `format:check` pass. Step 3.4 (#17) is merged. `Crease` and `scale` moved to `core/gadgets/crease.ts`.
+Implemented plan step 3.6, the star twist (branch `step/3-6-star-twist-gadget`). Tests 175 → 184; typecheck, lint and `format:check` pass. Step 3.5 (#18) is merged. `rotate` and `hexagonFrame` moved to `core/gadgets/crease.ts`.
 
 ## State
 - Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`.
-- `main` has everything through step 3.4. Branch `step/3-5-triangle-twist-gadget` holds 3.5 and ticks it.
+- `main` has everything through step 3.5. Branch `step/3-6-star-twist-gadget` holds 3.6 and ticks it.
 - `.idea/` is excluded locally through `.git/info/exclude`, so the tree is otherwise clean.
 
 ## Next step
-Merge the 3.5 PR (`/next-step`), then step **3.6**, the star twist. It needs a definition from the reference photos first (a hexagram needs creases inside the star). `CLAUDE.md` says to ask whether you want a detailed plan before coding. Phase 3 ends at 3.6, so a Phase 3 audit follows it.
+Merge the 3.6 PR (`/next-step`). Phase 3 is then complete, so the next work is the **Phase 3 audit** (`audit/phase-3`, per the "Phase audits" section of `CLAUDE.md`), covering Phases 1 to 3, before step 4.1. `CLAUDE.md` says to ask whether you want a detailed plan before coding.
 
 ## Gotchas and decisions
 - `/next-step` squash-merges the open PR (CI green only; stops if red, pending or ambiguous).
@@ -47,6 +47,10 @@ Merge the 3.5 PR (`/next-step`), then step **3.6**, the star twist. It needs a d
 
 - The triangle twist (`triangleTwist(n, m)`) is centred at n/(1−ω), which is not a lattice point, so placement and mirroring stay for later steps (3.6 / 8.1). Its rotation ρ(z) = ωz + n maps the crease set to itself. Rays end on the middle of frame sides, never at frame corners.
 - The frame is walked in unit steps, so very large sizes are slow rather than an overflow error; only non-safe-integer sizes throw.
+
+- The star twist (`starTwist(s)`) is a spoked hexagram defined from first principles (no reference photos were ever in the repo): a collapsed star, not a rotating twist. Frame radius is fixed at 3s. Its M/V assignment is only half-turn symmetric because the centre needs 2 M / 4 V (a 3-fold or 6-fold M/V pattern gives 3/3 or 6/0 there). It is chiral; the mirror star is a reflection, left for placement (8.1).
+- **Correction to my own plan:** the approved 3.6 plan kept both halves of the outer hexagon at each tip. The validators showed that fails Kawasaki (tip sectors π/3, π/3, π/3, π). The fix was found by an exhaustive search of 6-fold symmetric crease sets on the radius-3 grid (8 pass Kawasaki at every interior vertex, and each has valid M/V assignments); the sparsest was used. Hand-checking geometry is not enough: run the validators.
+- Whether the star, like the triangle twist, folds flat globally is a Phase 5 question; only the local conditions are tested.
 
 ## Open questions
 - None.
