@@ -15,12 +15,12 @@
  */
 
 import { checkedAdd, sub, type Eisenstein } from "../lattice/eisenstein";
-import { compareAngle, cross, onSegment, orientation } from "../lattice/direction";
+import { compareAngle, cross, onSegment, orientation, windingNumber } from "../lattice/direction";
 import type { Edge } from "../lattice/grid";
 
 /**
  * Crease assignment, as in the FOLD format: mountain, valley, border, flat, unassigned.
- * The solver (Phase 4) replaces "U"; until then every crease is unassigned.
+ * Gadgets assign M/V themselves; the solver (Phase 4) fills in "U" for the rest.
  */
 export type Assignment = "M" | "V" | "B" | "F" | "U";
 
@@ -38,14 +38,17 @@ export type Face = readonly number[];
  * A planar crease graph.
  *
  * `faces` lists the bounded faces only; the single unbounded face is implicit (see
- * {@link faceCount}). A face is its outer boundary walk, so a component sitting inside a face is
- * not listed as a hole of it. `rotation[i]` holds the indices of the edges at vertex i in
- * counter-clockwise order from the +x axis.
+ * {@link faceCount}). A face is its outer boundary walk. A connected component that sits inside a
+ * bounded face is a hole of it: `holes[i]` lists the outer walks of the components nested directly
+ * in `faces[i]` (clockwise, or degenerate for a tree), so every sector around every vertex belongs
+ * to a walk in `faces` or `holes`, except sectors in the unbounded face. `rotation[i]` holds the
+ * indices of the edges at vertex i in counter-clockwise order from the +x axis.
  */
 export type CreasePattern = {
   readonly vertices: readonly Eisenstein[];
   readonly edges: readonly CreaseEdge[];
   readonly faces: readonly Face[];
+  readonly holes: readonly (readonly Face[])[];
   readonly rotation: readonly (readonly number[])[];
 };
 
@@ -65,7 +68,10 @@ const key = (z: Eisenstein) => `${z.a},${z.b}`;
  * successor of the half-edge u→v is the half-edge that precedes v→u in counter-clockwise order
  * around v, which keeps the face on the left (de Berg et al., §2.2). A walk with positive
  * shoelace area is a bounded face; walks with area ≤ 0 are the outer boundary of a component
- * (negative) or a tree (zero), and all belong to the unbounded face.
+ * (negative) or a tree (zero). Such a walk is the outer boundary of a whole component: it is a
+ * hole of the smallest bounded face of another component that contains it (exact winding number,
+ * {@link windingNumber}), or part of the unbounded face if no face does. A vertex of one component
+ * is never on the boundary of another component's face, because the graph is planar.
  *
  * Planarity is checked, not repaired, using exact orientation tests.
  *
@@ -106,6 +112,7 @@ export function creasePattern(
 
   const visited = new Set<number>();
   const faces: Face[] = [];
+  const outerWalks: number[][] = [];
   for (let start = 0; start < 2 * es.length; start++) {
     if (visited.has(start)) continue;
     const walk: number[] = [];
@@ -114,15 +121,62 @@ export function creasePattern(
       walk.push(origin(h));
     }
     if (faceDoubledArea(vertices, walk) > 0) faces.push(Object.freeze(walk));
+    else outerWalks.push(walk);
   }
+  const holes = assignHoles(vertices, es, faces, outerWalks);
 
   const rotation = outgoing.map((list) => Object.freeze(list.map((h) => h >> 1)));
   return Object.freeze({
     vertices: Object.freeze([...vertices]),
     edges: Object.freeze(es),
     faces: Object.freeze(faces),
+    holes: Object.freeze(holes),
     rotation: Object.freeze(rotation),
   });
+}
+
+/**
+ * Gives each component's outer walk to the smallest bounded face, of another component, that
+ * contains it.
+ *
+ * Faces nest strictly, so among the faces containing a point the one with the least doubled area is
+ * the innermost. Faces of the walk's own component are skipped: the walk's vertices lie on their
+ * boundaries, where a winding number is undefined.
+ *
+ * @returns `holes[i]` for each entry of `faces`; walks inside no face are dropped
+ */
+function assignHoles(
+  vertices: readonly Eisenstein[],
+  es: readonly CreaseEdge[],
+  faces: readonly Face[],
+  outerWalks: readonly (readonly number[])[],
+): Face[][] {
+  const holes: Face[][] = faces.map(() => []);
+  if (faces.length === 0) return holes;
+  const parent = vertices.map((_, i) => i);
+  const find = (x: number): number => {
+    while (parent[x] !== x) {
+      parent[x] = parent[parent[x]!]!;
+      x = parent[x]!;
+    }
+    return x;
+  };
+  for (const e of es) parent[find(e.v0)] = find(e.v1);
+  const polygons = faces.map((f) => f.map((v) => at(vertices, v)));
+  const areas = faces.map((f) => faceDoubledArea(vertices, f));
+  const roots = faces.map((f) => find(at(f, 0)));
+  for (const walk of outerWalks) {
+    const probe = at(walk, 0);
+    const own = find(probe);
+    let best = -1;
+    faces.forEach((_, i) => {
+      if (roots[i] === own) return;
+      if (best !== -1 && at(areas, i) >= at(areas, best)) return;
+      if (windingNumber(at(polygons, i), at(vertices, probe)) !== 0) best = i;
+    });
+    if (best !== -1) at(holes, best).push(Object.freeze([...walk]));
+  }
+  return holes.map((h) => Object.freeze(h) as Face[]);
 }
 
 /**

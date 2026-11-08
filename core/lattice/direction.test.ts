@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import { eis, rot60, sub, type Eisenstein } from "./eisenstein";
-import { compareAngle, cross, halfPlane, onSegment, orientation } from "./direction";
+import {
+  compareAngle,
+  cross,
+  gcd,
+  halfPlane,
+  onSegment,
+  orientation,
+  primitive,
+  windingNumber,
+} from "./direction";
 
 const coord = fc.integer({ min: -50, max: 50 });
 const nonzero = fc
@@ -125,6 +134,87 @@ describe("orientation and onSegment", () => {
           expect(sub(r, p)).toEqual(eis(d.a * k, d.b * k));
         },
       ),
+    );
+  });
+});
+
+describe("compareAngle as an order", () => {
+  it("is a total preorder: antisymmetric and transitive (exact, no atan2)", () => {
+    fc.assert(
+      fc.property(nonzero, nonzero, nonzero, (u, v, w) => {
+        expect(Math.sign(compareAngle(u, v))).toBe(-Math.sign(compareAngle(v, u)));
+        if (compareAngle(u, v) <= 0 && compareAngle(v, w) <= 0) {
+          expect(compareAngle(u, w)).toBeLessThanOrEqual(0);
+        }
+      }),
+    );
+  });
+});
+
+describe("gcd and primitive", () => {
+  it("gcd divides both arguments and is greatest on small inputs", () => {
+    fc.assert(
+      fc.property(fc.nat(500), fc.nat(500), (x, y) => {
+        const g = gcd(x, y);
+        let best = 0;
+        for (let d = 1; d <= Math.max(x, y); d++) if (x % d === 0 && y % d === 0) best = d;
+        expect(g).toBe(x === 0 && y === 0 ? 0 : best);
+      }),
+    );
+  });
+
+  it("primitive keeps the ray, has coprime coordinates, and is idempotent", () => {
+    fc.assert(
+      fc.property(nonzero, (z) => {
+        const p = primitive(z);
+        expect(compareAngle(p, z)).toBe(0);
+        expect(gcd(Math.abs(p.a), Math.abs(p.b))).toBe(1);
+        expect(primitive(p)).toEqual(p);
+      }),
+    );
+    expect(primitive(eis(0, 0))).toEqual(eis(0, 0));
+  });
+});
+
+describe("windingNumber", () => {
+  /** Float reference: even-odd ray casting in Cartesian coordinates. */
+  function insideByRayCast(polygon: readonly Eisenstein[], p: Eisenstein): boolean {
+    const q = toCartesian(p);
+    let inside = false;
+    for (let i = 0; i < polygon.length; i++) {
+      const a = toCartesian(polygon[i]!);
+      const b = toCartesian(polygon[(i + 1) % polygon.length]!);
+      if (a.y > q.y !== b.y > q.y && q.x < a.x + ((q.y - a.y) * (b.x - a.x)) / (b.y - a.y)) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  }
+
+  const small = fc.integer({ min: -6, max: 6 });
+  const point = fc.tuple(small, small).map(([a, b]) => eis(a, b));
+
+  it("is ±1 inside a simple polygon, 0 outside, and flips sign with orientation", () => {
+    // Convex hulls are simple; a star-shaped fan about the first point is also simple.
+    const square = [eis(0, 0), eis(4, 0), eis(4, 4), eis(0, 4)];
+    expect(windingNumber(square, eis(2, 2))).toBe(1);
+    expect(windingNumber([...square].reverse(), eis(2, 2))).toBe(-1);
+    expect(windingNumber(square, eis(9, 2))).toBe(0);
+    expect(windingNumber(square, eis(-1, -1))).toBe(0);
+  });
+
+  it("agrees with float ray casting for points off the boundary", () => {
+    fc.assert(
+      fc.property(fc.array(point, { minLength: 3, maxLength: 7 }), point, (polygon, p) => {
+        const onBoundary = polygon.some((v, i) =>
+          onSegment(v, polygon[(i + 1) % polygon.length]!, p),
+        );
+        fc.pre(!onBoundary);
+        // Even-odd and non-zero winding agree for simple polygons, so require |wn| <= 1.
+        const wn = windingNumber(polygon, p);
+        fc.pre(Math.abs(wn) <= 1);
+        expect(wn !== 0).toBe(insideByRayCast(polygon, p));
+      }),
     );
   });
 });
