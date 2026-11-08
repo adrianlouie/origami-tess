@@ -148,3 +148,24 @@ describe("tilingToSvg", () => {
     );
   });
 });
+
+describe("svg robustness", () => {
+  it("renders a large grid (R = 200) without overflowing the call stack", () => {
+    const svg = gridToSvg(triangularGrid(200));
+    expect(parseLines(svg)).toHaveLength(9 * 200 * 200 + 3 * 200);
+  });
+
+  it("rejects non-positive or non-finite options", () => {
+    const grid = triangularGrid(1);
+    for (const opts of [
+      { scale: 0 },
+      { scale: NaN },
+      { strokeWidth: -1 },
+      { margin: -0.1 },
+      { margin: Infinity },
+    ]) {
+      expect(() => gridToSvg(grid, opts)).toThrow(RangeError);
+    }
+    expect(() => tilingToSvg({ points: [], edges: [] }, { pointRadius: 0 })).toThrow(RangeError);
+  });
+});
