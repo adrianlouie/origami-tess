@@ -1,11 +1,12 @@
 /**
- * Local flat-foldability validators: the Kawasaki and Maekawa conditions at a single vertex.
+ * Local flat-foldability validators: the Kawasaki, Maekawa and Big-Little-Big conditions at a
+ * single vertex.
  *
  * Sits at the "validate" stage of the data flow (lattice → symmetry/gadgets → pattern → validate →
  * solve → simulate/render). It reads the counter-clockwise edge order from a `CreasePattern`
  * (`rotation`) and decides, per interior vertex, the two necessary conditions for a flat fold.
- * Both are necessary, not sufficient: Big-Little-Big (step 3.5) and global layer ordering
- * (Phase 5) are still needed. Kawasaki is decided with exact integers, never angles.
+ * All are necessary, not sufficient: global layer ordering (Phase 5) is still needed. Kawasaki is
+ * decided with exact integers, never angles; Big-Little-Big lives in `big-little-big.ts`.
  *
  * Reference: Demaine & O'Rourke, "Geometric Folding Algorithms", §12.2 (Kawasaki–Justin and
  * Maekawa–Justin theorems); Hull, "Project Origami", ch. 4.
@@ -13,6 +14,7 @@
 
 import { conj, eis, mul, sub, type Eisenstein } from "../lattice/eisenstein";
 import type { Assignment, CreasePattern } from "../pattern/crease-pattern";
+import { bigLittleBigFlat } from "./big-little-big";
 
 /** Greatest common divisor of two non-negative integers. */
 function gcd(x: number, y: number): number {
@@ -105,15 +107,20 @@ export type LocalFlatFoldabilityReport = {
   readonly maekawa: readonly number[];
   /** Interior vertices with an unassigned ("U") crease, whose Maekawa check is deferred. */
   readonly unassigned: readonly number[];
+  /**
+   * Interior vertices that are fully assigned and satisfy Kawasaki but fail Big-Little-Big. The
+   * lemma presumes a Kawasaki vertex, so other vertices are not tested.
+   */
+  readonly bigLittleBig: readonly number[];
 };
 
 /**
- * Checks the Kawasaki and Maekawa conditions at every interior vertex of a crease pattern.
+ * Checks the Kawasaki, Maekawa and Big-Little-Big conditions at every interior vertex.
  *
  * Flat ("F") creases are ignored: they do not fold, so they divide no sector. Kawasaki is
  * geometric and treats "U" like any other crease. Maekawa needs M/V, so a vertex with a "U"
- * crease is listed under `unassigned` and left out of `maekawa`. Both conditions are necessary,
- * not sufficient, for flat-foldability.
+ * crease is listed under `unassigned` and left out of `maekawa` and `bigLittleBig`. All three
+ * conditions are necessary, not sufficient, for flat-foldability.
  *
  * @throws RangeError as {@link kawasakiFlat} does
  */
@@ -121,6 +128,7 @@ export function checkLocalFlatFoldability(cp: CreasePattern): LocalFlatFoldabili
   const kawasaki: number[] = [];
   const maekawa: number[] = [];
   const unassigned: number[] = [];
+  const bigLittleBig: number[] = [];
   for (const v of interiorVertices(cp)) {
     const directions: Eisenstein[] = [];
     const assignments: Assignment[] = [];
@@ -131,9 +139,15 @@ export function checkLocalFlatFoldability(cp: CreasePattern): LocalFlatFoldabili
       directions.push(sub(cp.vertices[other]!, cp.vertices[v]!));
       assignments.push(edge.assignment);
     }
-    if (!kawasakiFlat(directions)) kawasaki.push(v);
-    if (assignments.includes("U")) unassigned.push(v);
-    else if (!maekawaFlat(assignments as ("M" | "V")[])) maekawa.push(v);
+    const kawasakiOk = kawasakiFlat(directions);
+    if (!kawasakiOk) kawasaki.push(v);
+    if (assignments.includes("U")) {
+      unassigned.push(v);
+      continue;
+    }
+    const folds = assignments as ("M" | "V")[];
+    if (!maekawaFlat(folds)) maekawa.push(v);
+    if (kawasakiOk && !bigLittleBigFlat(directions, folds)) bigLittleBig.push(v);
   }
-  return { kawasaki, maekawa, unassigned };
+  return { kawasaki, maekawa, unassigned, bigLittleBig };
 }
