@@ -1,13 +1,13 @@
 ## Last session: 2026-11-07
-Did step 4.1 (branch `step/4-1-local-mv-clauses`). Tests 262 → 282; typecheck, lint and `format:check` pass. The Phase 3 audit (#20) is merged.
+Did step 4.2 (branch `step/4-2-sat-solver`). Tests 282 → 305; typecheck, lint and `format:check` pass. The Phase 3 audit (#20) is merged.
 
 ## State
 - Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`.
-- `main` has everything through the Phase 3 audit (3.7). Branch `step/4-1-local-mv-clauses` holds step 4.1.
+- `main` has everything through step 4.1. Branch `step/4-2-sat-solver` holds step 4.2.
 - `.idea/` is excluded locally through `.git/info/exclude`, so the tree is otherwise clean.
 
 ## Next step
-Merge the 4.1 PR (`/next-step`), then step **4.2** (SAT/backtracking solver; test: Maekawa holds at every vertex). `CLAUDE.md` says to ask whether you want a detailed plan before coding.
+Merge the 4.2 PR (`/next-step`), then step **5.1** (face adjacency and stacking constraints). Phase 4 is then complete, so `CLAUDE.md` calls for a Phase 4 audit (`audit/phase-4`) before 5.1. `CLAUDE.md` also says to ask whether you want a detailed plan before coding.
 
 ## Phase 3 audit findings (all fixed unless noted)
 - **Nested components were skipped by the validators.** A component inside a bounded face has an outer walk with area ≤ 0, which was discarded, so its vertices never reached `visits === degree` and passed vacuously. `CreasePattern.holes[i]` now lists the outer walks nested directly in `faces[i]` (smallest containing face of another component, by `windingNumber`), and `interiorVertices` counts them. A nested tree's leaves are now flagged (odd degree).
@@ -67,6 +67,15 @@ Merge the 4.1 PR (`/next-step`), then step **4.2** (SAT/backtracking solver; tes
 - The formula is exact for Maekawa + Big-Little-Big, both necessary only; a solution still needs Phase 5 layer ordering.
 - Enumeration is 2ⁿ per vertex, capped at degree 12. Revisit only if a tessellation has a high-degree vertex.
 - `smallSectorRuns` was split out of `bigLittleBigFlat` (behaviour unchanged); `foldingCreases` out of `checkLocalFlatFoldability`.
+
+## Step 4.2 notes
+- `solveMv(cp)` returns `{status: "sat", assignment}` (true = M, one per edge), `{status: "unsat", vertices}` or `{status: "kawasaki", vertices}`. `withMvAssignment` fills only "U" creases and throws if the assignment contradicts a fixed M/V.
+- An odd-degree vertex always fails Kawasaki, so through `solveMv` it is reported as `kawasaki`, never as the empty Maekawa clause. The empty-clause path is reachable only through a hand-built formula.
+- Variables in no clause are not decided: they read false, so an unconstrained "U" crease becomes a valley.
+- `mvSolutions` blocks each model over the constrained variables and restarts, so it re-propagates from scratch each time. Fine for Phase 5 pulling a few candidates; use watched literals or incremental solving if it must enumerate thousands.
+- Every clause is rescanned each propagation round (no watched literals). Revisit if Phase 5 or large tessellations make solves slow.
+- The planned test "centre has 2 M / 4 V" became "|#M − #V| = 2": Maekawa allows 4 M / 2 V at the star centre too, and the solver may return either.
+- The full suite timed out two older tests (`orbit`, `star-twist`) once while the machine was under load (load average ~7); they pass in a quiet run, and `star-twist` also timed out once on CI in #21. If it recurs, give those property tests an explicit timeout or fewer runs.
 
 ## Open questions
 - None.
