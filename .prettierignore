@@ -1,0 +1,7 @@
+node_modules
+package-lock.json
+**/__snapshots__/**
+.idea
+docs
+.claude
+*.md
