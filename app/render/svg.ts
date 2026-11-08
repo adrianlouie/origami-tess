@@ -1,7 +1,7 @@
 /**
- * SVG renderer for triangular grids.
+ * SVG renderer for triangular grids and motif tilings.
  *
- * Draws the exact grid from `core/lattice/grid.ts`, or a motif tiling from
+ * Draws the exact grid from `core/lattice/grid.ts`, or a tiling from
  * `core/symmetry/orbit.ts`, as a standalone SVG string.
  * It is the render boundary of the lattice stage: Eisenstein points become floats
  * here via `toCartesian`. Returning a string (no DOM) keeps it testable in Node.
@@ -11,7 +11,7 @@ import type { TriangularGrid } from "../../core/lattice/grid";
 import type { Tiling } from "../../core/symmetry/motif";
 import { RENDER_PRECISION, toCartesian } from "./cartesian";
 
-/** Options for {@link gridToSvg}. */
+/** Options for {@link gridToSvg}; also the base of {@link TilingSvgOptions}. */
 export type SvgOptions = {
   /** Pixels per lattice unit. Default 100. */
   readonly scale?: number;

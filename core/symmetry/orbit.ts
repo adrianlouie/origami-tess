@@ -1,9 +1,8 @@
 /**
  * Orbit tiling: the images of a motif under p6m, within a finite window.
  *
- * Last module of the symmetry layer before the tiled render of step 2.3; it
- * turns a group and a seed into the points and edges a gadget is later placed
- * on. Exact integers throughout.
+ * Last module of the symmetry layer; it turns a group and a seed into the points
+ * and edges that `app/render/svg.ts` draws and gadgets are later placed on. Exact integers throughout.
  *
  * Reference: Armstrong, "Groups and Symmetry", ch. 16 (orbits); the window
  * bound below is the triangle inequality for the hex metric.
