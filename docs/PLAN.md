@@ -46,7 +46,12 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - `core/validate/local-flat-foldability.ts`: `kawasakiFlat`, `maekawaFlat`, `interiorVertices`, `checkLocalFlatFoldability`
   - Kawasaki is exact: the odd sector sum is arg Q with Q = Π d₂ₖ·conj(d₂ₖ₋₁), and it equals π iff Q is a negative real (`b === 0 && a < 0`)
   - Only interior vertices are checked (no border edge, every sector in a bounded face); "F" creases are ignored; vertices with a "U" crease are reported as `unassigned`, not failed
-- [ ] 3.3 Hexagon twist gadget — test: every vertex satisfies Kawasaki
+- [x] 3.3 Hexagon twist gadget — test: every vertex satisfies Kawasaki
+  - `core/gadgets/hexagon-twist.ts`: `hexagonTwistCreases(s, R)`, `hexagonTwist(s, R)`, type `Crease`
+  - Corners Pₖ = s·uᵏ (u = 1 + ω); radial ray Rₖ (M) along uᵏ and extension ray Xₖ (V) along uᵏ⁺¹; hexagon edges M
+  - Sectors 2π/3, 2π/3, π/3, π/3 at each corner, so Kawasaki holds for every s; 3 M + 1 V gives Maekawa
+  - A "B" frame ring at hexDistance R (all 6R lattice points) makes the six corners interior; without it the validators pass vacuously
+  - `fromSegments` now accepts a per-segment `assignment`; a conflicting duplicate throws
 - [ ] 3.4 Triangle twist and star twist gadgets
 - [ ] 3.5 Big-Little-Big check
 

@@ -129,16 +129,19 @@ export function creasePattern(
  * Builds a crease pattern from lattice points and segments, such as a grid or a tiling.
  *
  * Repeated positions are merged, segment endpoints missing from `points` are added, and an
- * undirected segment listed twice becomes one crease. This is the interface from Phases 1 and 2.
+ * undirected segment listed twice becomes one crease. This is the interface from Phases 1 and 2
+ * and from the gadgets, which assign M/V per segment.
  *
  * @param points - vertices to include even if no segment touches them
- * @param segments - undirected segments between lattice points
- * @param assignment - assignment given to every crease
- * @throws RangeError as {@link creasePattern} does
+ * @param segments - undirected segments between lattice points; a segment's own `assignment`
+ *   overrides the default
+ * @param assignment - default assignment for segments that carry none
+ * @throws RangeError as {@link creasePattern} does, and when one segment is listed twice with
+ *   different assignments (silently keeping one would hide a bug in the caller)
  */
 export function fromSegments(
   points: readonly Eisenstein[],
-  segments: readonly Edge[],
+  segments: readonly (Edge & { readonly assignment?: Assignment })[],
   assignment: Assignment = "U",
 ): CreasePattern {
   const index = new Map<string, number>();
@@ -153,15 +156,20 @@ export function fromSegments(
     return i;
   };
   for (const p of points) indexOf(p);
-  const seen = new Set<string>();
+  const seen = new Map<string, Assignment>();
   const edges: { v0: number; v1: number; assignment: Assignment }[] = [];
   for (const s of segments) {
     const v0 = indexOf(s.from);
     const v1 = indexOf(s.to);
     const k = `${Math.min(v0, v1)}|${Math.max(v0, v1)}`;
-    if (v0 !== v1 && seen.has(k)) continue;
-    seen.add(k);
-    edges.push({ v0, v1, assignment });
+    const a = s.assignment ?? assignment;
+    const previous = seen.get(k);
+    if (v0 !== v1 && previous !== undefined) {
+      if (previous !== a) throw new RangeError(`Segment ${k} listed as both ${previous} and ${a}`);
+      continue;
+    }
+    seen.set(k, a);
+    edges.push({ v0, v1, assignment: a });
   }
   return creasePattern(vertices, edges);
 }
