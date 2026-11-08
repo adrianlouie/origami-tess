@@ -46,6 +46,28 @@ Status and next steps live in `docs/PLAN.md` and `docs/HANDOFF.md`, not here.
 - `npm test`: unit and property tests
 - `npm run typecheck` · `npm run lint`
 
+## Phase audits
+- After the last step of every phase is merged, run a debug and test audit before starting the
+  next phase. It covers the finished phase and every phase before it.
+- Run `npm test`, `npm run typecheck` and `npm run lint`, and fix every failure and warning.
+- Review each module in scope for bugs: edge cases (empty input, zero, negative, boundary
+  values), exact-integer overflow past 2⁵³, and agreement between each function and the theorem
+  its TSDoc cites.
+- Strengthen tests where they are thin: add property-based tests for invariants, cross-check
+  against a brute-force reference where one is feasible, and check that snapshots still look
+  right by eye, not only that they match.
+- Check that the interfaces between phases still hold (for example, that `tile` output renders
+  and that gadget output satisfies the validators), and that comments and docs are still true.
+- Record the findings and fixes in `docs/HANDOFF.md`. Land the fixes as their own PR named for
+  the audit (for example `audit/phase-2`), separate from plan-step PRs.
+
+## Planning after a merge
+- Every time you merge a PR, ask the user whether to make a detailed plan for the next step
+  before any code is written (use plan mode). A written plan gives better output than coding
+  straight from the one-line entry in `docs/PLAN.md`.
+- Ask once per merge, right after reporting the merge. Do not start the plan or the code until
+  the user says yes. If they decline, continue with the usual restate-and-confirm flow.
+
 ## Git
 - One plan step per branch and per PR; squash merge; CI must pass.
 - Never add a `Co-Authored-By: Claude` trailer to commits, and no "Generated with Claude Code" footer on PR descriptions.
