@@ -31,9 +31,7 @@ function parseViewBox(svg: string): [number, number, number, number] {
 
 describe("gridToSvg snapshot (acceptance test for step 1.3)", () => {
   it("renders the R=3 grid to the committed SVG", async () => {
-    await expect(gridToSvg(triangularGrid(3))).toMatchFileSnapshot(
-      "./__snapshots__/grid-r3.svg",
-    );
+    await expect(gridToSvg(triangularGrid(3))).toMatchFileSnapshot("./__snapshots__/grid-r3.svg");
   });
 });
 
@@ -47,9 +45,7 @@ describe("gridToSvg", () => {
       fc.property(fc.integer({ min: 0, max: 8 }), (r) => {
         const svg = gridToSvg(triangularGrid(r), { scale: 1 });
         for (const l of parseLines(svg)) {
-          expect(Math.abs(Math.hypot(l.x2 - l.x1, l.y2 - l.y1) - 1)).toBeLessThan(
-            RENDER_TOLERANCE,
-          );
+          expect(Math.abs(Math.hypot(l.x2 - l.x1, l.y2 - l.y1) - 1)).toBeLessThan(RENDER_TOLERANCE);
         }
       }),
     );
@@ -142,7 +138,10 @@ describe("tilingToSvg", () => {
       .filter(([p, q]) => p[0] !== q[0] || p[1] !== q[1])
       .map(([p, q]) => ({ from: eis(...p), to: eis(...q) }));
     const motifs = fc.record({
-      points: fc.array(pt.map(([a, b]) => eis(a, b)), { maxLength: 3 }),
+      points: fc.array(
+        pt.map(([a, b]) => eis(a, b)),
+        { maxLength: 3 },
+      ),
       edges: fc.array(edge, { maxLength: 3 }),
     });
     fc.assert(
@@ -171,9 +170,7 @@ describe("tilingToSvg", () => {
       fc.property(validPeriod, fc.integer({ min: 1, max: 6 }), (period, r) => {
         const svg = tilingToSvg(tile(p6m(period), motif, r), { scale: 1 });
         for (const l of parseLines(svg)) {
-          expect(Math.abs(Math.hypot(l.x2 - l.x1, l.y2 - l.y1) - 1)).toBeLessThan(
-            RENDER_TOLERANCE,
-          );
+          expect(Math.abs(Math.hypot(l.x2 - l.x1, l.y2 - l.y1) - 1)).toBeLessThan(RENDER_TOLERANCE);
         }
       }),
     );

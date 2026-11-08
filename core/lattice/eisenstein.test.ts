@@ -34,15 +34,11 @@ function iterate(f: (z: Eisenstein) => Eisenstein, n: number, z: Eisenstein) {
 
 describe("rot60 (rotation by 60° = multiplication by the unit 1 + ω)", () => {
   it("rot60^6 is the identity (a primitive 6th root of unity has order 6)", () => {
-    fc.assert(
-      fc.property(eisenstein, (z) => equals(iterate(rot60, 6, z), z)),
-    );
+    fc.assert(fc.property(eisenstein, (z) => equals(iterate(rot60, 6, z), z)));
   });
 
   it("rot60^3 is negation (rotation by 180°)", () => {
-    fc.assert(
-      fc.property(eisenstein, (z) => equals(iterate(rot60, 3, z), neg(z))),
-    );
+    fc.assert(fc.property(eisenstein, (z) => equals(iterate(rot60, 3, z), neg(z))));
   });
 
   it("rot60 has order exactly 6 on 1 (no smaller power is the identity)", () => {
@@ -76,10 +72,7 @@ describe("commutative ring axioms (Z[ω] is a ring)", () => {
   it("addition is commutative and associative", () => {
     fc.assert(
       fc.property(eisenstein, eisenstein, eisenstein, (x, y, z) => {
-        return (
-          equals(add(x, y), add(y, x)) &&
-          equals(add(add(x, y), z), add(x, add(y, z)))
-        );
+        return equals(add(x, y), add(y, x)) && equals(add(add(x, y), z), add(x, add(y, z)));
       }),
     );
   });
@@ -87,10 +80,7 @@ describe("commutative ring axioms (Z[ω] is a ring)", () => {
   it("multiplication is commutative and associative", () => {
     fc.assert(
       fc.property(eisenstein, eisenstein, eisenstein, (x, y, z) => {
-        return (
-          equals(mul(x, y), mul(y, x)) &&
-          equals(mul(mul(x, y), z), mul(x, mul(y, z)))
-        );
+        return equals(mul(x, y), mul(y, x)) && equals(mul(mul(x, y), z), mul(x, mul(y, z)));
       }),
     );
   });
@@ -104,12 +94,7 @@ describe("commutative ring axioms (Z[ω] is a ring)", () => {
   });
 
   it("ZERO and ONE are the additive and multiplicative identities", () => {
-    fc.assert(
-      fc.property(
-        eisenstein,
-        (z) => equals(add(z, ZERO), z) && equals(mul(z, ONE), z),
-      ),
-    );
+    fc.assert(fc.property(eisenstein, (z) => equals(add(z, ZERO), z) && equals(mul(z, ONE), z)));
   });
 
   it("z + (-z) = 0 and sub(x, y) = x + (-y)", () => {
@@ -117,8 +102,7 @@ describe("commutative ring axioms (Z[ω] is a ring)", () => {
       fc.property(
         eisenstein,
         eisenstein,
-        (x, y) =>
-          equals(add(x, neg(x)), ZERO) && equals(sub(x, y), add(x, neg(y))),
+        (x, y) => equals(add(x, neg(x)), ZERO) && equals(sub(x, y), add(x, neg(y))),
       ),
     );
   });
@@ -126,30 +110,15 @@ describe("commutative ring axioms (Z[ω] is a ring)", () => {
 
 describe("norm N(z) = a² − ab + b² (squared Euclidean length)", () => {
   it("is multiplicative: N(zw) = N(z)N(w)", () => {
-    fc.assert(
-      fc.property(
-        eisenstein,
-        eisenstein,
-        (z, w) => norm(mul(z, w)) === norm(z) * norm(w),
-      ),
-    );
+    fc.assert(fc.property(eisenstein, eisenstein, (z, w) => norm(mul(z, w)) === norm(z) * norm(w)));
   });
 
   it("equals z times its conjugate", () => {
-    fc.assert(
-      fc.property(eisenstein, (z) =>
-        equals(mul(z, conj(z)), eis(norm(z), 0)),
-      ),
-    );
+    fc.assert(fc.property(eisenstein, (z) => equals(mul(z, conj(z)), eis(norm(z), 0))));
   });
 
   it("is non-negative and zero only at the origin", () => {
-    fc.assert(
-      fc.property(
-        eisenstein,
-        (z) => norm(z) >= 0 && (norm(z) === 0) === equals(z, ZERO),
-      ),
-    );
+    fc.assert(fc.property(eisenstein, (z) => norm(z) >= 0 && (norm(z) === 0) === equals(z, ZERO)));
   });
 
   it("the six unit vectors all have norm 1", () => {
@@ -164,10 +133,7 @@ describe("norm N(z) = a² − ab + b² (squared Euclidean length)", () => {
 describe("conj (complex conjugation)", () => {
   it("is an involution that preserves the norm", () => {
     fc.assert(
-      fc.property(
-        eisenstein,
-        (z) => equals(conj(conj(z)), z) && norm(conj(z)) === norm(z),
-      ),
+      fc.property(eisenstein, (z) => equals(conj(conj(z)), z) && norm(conj(z)) === norm(z)),
     );
   });
 });

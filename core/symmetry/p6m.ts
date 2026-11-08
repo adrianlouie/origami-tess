@@ -81,7 +81,6 @@ export function p6m(period: Eisenstein = ONE): P6m {
  */
 export function contains(group: P6m, f: Affine): boolean {
   return (
-    group.pointGroup.some((g) => g.m.every((v, i) => v === f.m[i])) &&
-    inLattice(f.t, group.period)
+    group.pointGroup.some((g) => g.m.every((v, i) => v === f.m[i])) && inLattice(f.t, group.period)
   );
 }

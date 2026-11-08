@@ -1,16 +1,6 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
-import {
-  ONE,
-  ZERO,
-  eis,
-  equals,
-  neg,
-  norm,
-  rot60,
-  sub,
-  type Eisenstein,
-} from "./eisenstein";
+import { ONE, ZERO, eis, equals, neg, norm, rot60, sub, type Eisenstein } from "./eisenstein";
 import { hexDistance, triangularGrid } from "./grid";
 
 /** Radii kept small enough that the O(R²) grid builds quickly under fast-check. */
@@ -27,9 +17,7 @@ const edgeKey = (p: Eisenstein, q: Eisenstein) => {
 
 describe("triangularGrid edge count (acceptance test for step 1.2)", () => {
   it("has 9R² + 3R edges (3F + 6R = 2E with F = 6R² triangles)", () => {
-    fc.assert(
-      fc.property(radius, (r) => triangularGrid(r).edges.length === 9 * r * r + 3 * r),
-    );
+    fc.assert(fc.property(radius, (r) => triangularGrid(r).edges.length === 9 * r * r + 3 * r));
   });
 
   it("matches the known counts for R = 0, 1, 2, 3", () => {
@@ -40,10 +28,7 @@ describe("triangularGrid edge count (acceptance test for step 1.2)", () => {
 describe("triangularGrid vertices", () => {
   it("has 3R² + 3R + 1 vertices (centred hexagonal number)", () => {
     fc.assert(
-      fc.property(
-        radius,
-        (r) => triangularGrid(r).vertices.length === 3 * r * r + 3 * r + 1,
-      ),
+      fc.property(radius, (r) => triangularGrid(r).vertices.length === 3 * r * r + 3 * r + 1),
     );
   });
 
@@ -77,8 +62,7 @@ describe("triangularGrid edges", () => {
         const { edges, vertices } = triangularGrid(r);
         const keys = new Set(vertices.map(key));
         return edges.every(
-          (e) =>
-            norm(sub(e.to, e.from)) === 1 && keys.has(key(e.from)) && keys.has(key(e.to)),
+          (e) => norm(sub(e.to, e.from)) === 1 && keys.has(key(e.from)) && keys.has(key(e.to)),
         );
       }),
     );

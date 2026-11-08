@@ -22,7 +22,11 @@ export type SvgOptions = {
 };
 
 /** Throws RangeError unless every named option is finite and satisfies `ok`. */
-function checkOptions(values: Record<string, number>, ok: (n: number) => boolean, rule: string): void {
+function checkOptions(
+  values: Record<string, number>,
+  ok: (n: number) => boolean,
+  rule: string,
+): void {
   for (const [name, n] of Object.entries(values)) {
     if (!Number.isFinite(n) || !ok(n)) throw new RangeError(`${name} must be ${rule}, got ${n}`);
   }
@@ -52,7 +56,12 @@ function toPixels(z: Parameters<typeof toCartesian>[0], scale: number): Px {
  * Wraps drawn elements in an SVG document whose viewBox is the bounding box of
  * `extent` plus `margin` lattice units. An empty extent gives a zero-size box.
  */
-function svgDocument(extent: readonly Px[], body: readonly string[], margin: number, scale: number): string {
+function svgDocument(
+  extent: readonly Px[],
+  body: readonly string[],
+  margin: number,
+  scale: number,
+): string {
   const pad = margin * scale;
   // A loop, not Math.min(...xs): spreading a large array overflows the call stack.
   let lo = { x: Infinity, y: Infinity };
@@ -74,7 +83,11 @@ function svgDocument(extent: readonly Px[], body: readonly string[], margin: num
 }
 
 /** One <line> element between two lattice points. */
-function lineElement(from: Parameters<typeof toCartesian>[0], to: Parameters<typeof toCartesian>[0], scale: number): string {
+function lineElement(
+  from: Parameters<typeof toCartesian>[0],
+  to: Parameters<typeof toCartesian>[0],
+  scale: number,
+): string {
   const p = toPixels(from, scale);
   const q = toPixels(to, scale);
   return `  <line x1="${fmt(p.x)}" y1="${fmt(p.y)}" x2="${fmt(q.x)}" y2="${fmt(q.y)}"/>`;

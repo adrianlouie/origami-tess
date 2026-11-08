@@ -66,7 +66,10 @@ export function equals(f: Affine, g: Affine): boolean {
 export function apply(f: Affine, z: Eisenstein): Eisenstein {
   const [a, b, c, d] = f.m;
   return add(
-    eis(checkedAdd(checkedMul(a, z.a), checkedMul(b, z.b)), checkedAdd(checkedMul(c, z.a), checkedMul(d, z.b))),
+    eis(
+      checkedAdd(checkedMul(a, z.a), checkedMul(b, z.b)),
+      checkedAdd(checkedMul(c, z.a), checkedMul(d, z.b)),
+    ),
     f.t,
   );
 }
@@ -82,7 +85,10 @@ export function compose(f: Affine, g: Affine): Affine {
   const [e, h, i, j] = g.m;
   const dot = (p: number, q: number, r: number, s: number) =>
     checkedAdd(checkedMul(p, q), checkedMul(r, s));
-  return affine([dot(a, e, b, i), dot(a, h, b, j), dot(c, e, d, i), dot(c, h, d, j)], apply(f, g.t));
+  return affine(
+    [dot(a, e, b, i), dot(a, h, b, j), dot(c, e, d, i), dot(c, h, d, j)],
+    apply(f, g.t),
+  );
 }
 
 /**
@@ -157,7 +163,9 @@ export function about(f: Affine, center: Eisenstein): Affine {
  */
 export function isIsometry(f: Affine): boolean {
   const [a, b, c, d] = f.m;
-  return norm(eis(a, c)) === 1 &&
+  return (
+    norm(eis(a, c)) === 1 &&
     norm(eis(b, d)) === 1 &&
-    norm(eis(checkedAdd(a, -b), checkedAdd(c, -d))) === 3;
+    norm(eis(checkedAdd(a, -b), checkedAdd(c, -d))) === 3
+  );
 }
