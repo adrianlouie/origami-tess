@@ -5,7 +5,8 @@ import { cross } from "../lattice/direction";
 import { add, eis, equals, rot60, sub, type Eisenstein } from "../lattice/eisenstein";
 import { componentCount, faceCount } from "../pattern/crease-pattern";
 import { checkLocalFlatFoldability, interiorVertices } from "../validate/local-flat-foldability";
-import { hexagonTwist, hexagonTwistCreases, type Crease } from "./hexagon-twist";
+import type { Crease } from "./crease";
+import { hexagonTwist, hexagonTwistCreases } from "./hexagon-twist";
 
 /** The k-th corner s·uᵏ of the hexagon. */
 const corner = (s: number, k: number): Eisenstein => {

@@ -1,13 +1,13 @@
 ## Last session: 2026-11-07
-Implemented plan step 3.4, the Big-Little-Big check (branch `step/3-4-big-little-big-check`). Tests 159 → 168; typecheck, lint and `format:check` pass. Step 3.3 (#16) is merged. Steps were renumbered: the triangle twist is now 3.5 and the star twist 3.6.
+Implemented plan step 3.5, the triangle twist (branch `step/3-5-triangle-twist-gadget`). Tests 168 → 175; typecheck, lint and `format:check` pass. Step 3.4 (#17) is merged. `Crease` and `scale` moved to `core/gadgets/crease.ts`.
 
 ## State
 - Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`.
-- `main` has everything through step 3.3. Branch `step/3-4-big-little-big-check` holds 3.4 and ticks it.
-- No uncommitted work apart from the untracked `.idea/` folder (IDE files, deliberately not committed).
+- `main` has everything through step 3.4. Branch `step/3-5-triangle-twist-gadget` holds 3.5 and ticks it.
+- `.idea/` is excluded locally through `.git/info/exclude`, so the tree is otherwise clean.
 
 ## Next step
-Merge the 3.4 PR (`/next-step`), then step **3.5**, the triangle twist; its geometry is written out in `docs/PLAN.md`. `CLAUDE.md` says to ask whether you want a detailed plan before coding. The star twist (3.6) needs a definition from the reference photos first.
+Merge the 3.5 PR (`/next-step`), then step **3.6**, the star twist. It needs a definition from the reference photos first (a hexagram needs creases inside the star). `CLAUDE.md` says to ask whether you want a detailed plan before coding. Phase 3 ends at 3.6, so a Phase 3 audit follows it.
 
 ## Gotchas and decisions
 - `/next-step` squash-merges the open PR (CI green only; stops if red, pending or ambiguous).
@@ -44,6 +44,9 @@ Merge the 3.4 PR (`/next-step`), then step **3.5**, the triangle twist; its geom
 - The hexagon twist needs a "B" frame ring (hexDistance R ≥ s + 1) or no vertex is interior and Kawasaki/Maekawa pass vacuously. Rays are length R − s and end on ring lattice points, so no T-junctions.
 - The twist has a fixed chirality and is centred at 0; the mirror twist is a reflection and placement goes through `Affine`, both left for later steps (3.4 / 8.1).
 - `fromSegments` takes a per-segment `assignment` (default stays the argument); the same segment with two different assignments throws RangeError.
+
+- The triangle twist (`triangleTwist(n, m)`) is centred at n/(1−ω), which is not a lattice point, so placement and mirroring stay for later steps (3.6 / 8.1). Its rotation ρ(z) = ωz + n maps the crease set to itself. Rays end on the middle of frame sides, never at frame corners.
+- The frame is walked in unit steps, so very large sizes are slow rather than an overflow error; only non-safe-integer sizes throw.
 
 ## Open questions
 - None.

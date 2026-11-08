@@ -10,23 +10,15 @@
  * Gjerde, "Origami Tessellations" (2009).
  */
 
-import { add, checkedMul, eis, rot60, type Eisenstein } from "../lattice/eisenstein";
-import type { Edge } from "../lattice/grid";
-import { fromSegments, type Assignment, type CreasePattern } from "../pattern/crease-pattern";
-
-/** A crease segment with its mountain/valley assignment; the unit gadgets emit. */
-export type Crease = Edge & { readonly assignment: Assignment };
+import { add, eis, rot60, type Eisenstein } from "../lattice/eisenstein";
+import { fromSegments, type CreasePattern } from "../pattern/crease-pattern";
+import { scale, type Crease } from "./crease";
 
 /** Rotates z by k·60° (k·π/3 radians) counter-clockwise. */
 function rotate(z: Eisenstein, k: number): Eisenstein {
   let r = z;
   for (let i = 0; i < k; i++) r = rot60(r);
   return r;
-}
-
-/** Scales a lattice point by an integer, with overflow checking. */
-function scale(z: Eisenstein, n: number): Eisenstein {
-  return eis(checkedMul(z.a, n), checkedMul(z.b, n));
 }
 
 /**
