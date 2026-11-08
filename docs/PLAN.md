@@ -22,7 +22,7 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
 
 ## Phase 2: Symmetry
 - [x] 2.1 Affine transform and group type — test: group axioms hold
-- [ ] 2.2 p6m generators and orbit tiling — test: orbit closed under the group
+- [x] 2.2 p6m generators and orbit tiling — test: orbit closed under the group
 - [ ] 2.3 Motif + group → tiled render
 
 ## Phase 3: Gadgets and validation

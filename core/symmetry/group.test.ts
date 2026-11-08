@@ -1,24 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { IDENTITY, reflection, rotation60, type Affine } from "./affine";
-import { affineGroup, closure, type Group } from "./group";
-
-/** Checks every group axiom exhaustively over a finite set of elements. */
-function expectGroupAxioms<T>(g: Group<T>, elements: readonly T[]): void {
-  const has = (x: T) => elements.some((y) => g.equals(x, y));
-  expect(has(g.identity)).toBe(true);
-  for (const x of elements) {
-    expect(g.equals(g.compose(g.identity, x), x)).toBe(true);
-    expect(g.equals(g.compose(x, g.identity), x)).toBe(true);
-    expect(g.equals(g.compose(x, g.inverse(x)), g.identity)).toBe(true);
-    expect(has(g.inverse(x))).toBe(true);
-    for (const y of elements) {
-      expect(has(g.compose(x, y))).toBe(true);
-      for (const z of elements) {
-        expect(g.equals(g.compose(g.compose(x, y), z), g.compose(x, g.compose(y, z)))).toBe(true);
-      }
-    }
-  }
-}
+import { affineGroup, closure } from "./group";
+import { expectGroupAxioms } from "./testing";
 
 describe("closure", () => {
   it("<r> is the cyclic group C6 of order 6, and satisfies the group axioms", () => {
