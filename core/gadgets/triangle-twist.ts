@@ -52,12 +52,12 @@ export function triangleTwistCreases(side: number, rayLength: number): Crease[] 
   const rho = (z: Eisenstein): Eisenstein => add(mul(OMEGA, z), eis(n, 0));
   const p1 = eis(n, 0);
   const p2 = rho(p1);
-  const p0 = rho(p2);
 
-  // Creases at P₁ and their images under ρ, ρ² (a Crease is mapped endpoint by endpoint).
+  // Creases at P₁ and their images under ρ, ρ² (a Crease is mapped endpoint by endpoint). Only the
+  // edge P₁P₂ is listed for the triangle: its images are P₂P₀ and P₀P₁, so each triangle edge
+  // appears once (listing P₁P₀ as well would repeat P₀P₁ and draw it twice).
   const atP1: Crease[] = [
     { from: p1, to: p2, assignment: "M" },
-    { from: p1, to: p0, assignment: "M" },
     { from: p1, to: add(p1, scale(eis(1, 0), m)), assignment: "M" },
     { from: p1, to: add(p1, scale(eis(-1, -1), m)), assignment: "V" },
   ];

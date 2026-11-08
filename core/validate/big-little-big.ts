@@ -14,7 +14,7 @@
  * Hull, "Project Origami", ch. 4.
  */
 
-import { compareAngle } from "../lattice/direction";
+import { compareAngle, primitive } from "../lattice/direction";
 import { conj, mul, type Eisenstein } from "../lattice/eisenstein";
 
 /**
@@ -60,7 +60,10 @@ export function bigLittleBigFlat(
   if (n < 3) return true;
 
   // key[i] has the argument of sector i, so comparing keys compares sector sizes.
-  const key = directions.map((d, i) => mul(directions[(i + 1) % n]!, conj(d)));
+  // Reducing to primitive vectors only drops positive scale factors, so sector sizes are
+  // unchanged, and the products stay as small as Kawasaki's.
+  const dirs = directions.map(primitive);
+  const key = dirs.map((d, i) => mul(dirs[(i + 1) % n]!, conj(d)));
   const sizeOrder = (i: number, j: number) => compareAngle(key[i % n]!, key[j % n]!);
 
   // Start the walk at a sector that differs from its predecessor so no run wraps the seam.

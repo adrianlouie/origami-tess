@@ -1,13 +1,23 @@
 ## Last session: 2026-11-07
-Implemented plan step 3.6, the star twist (branch `step/3-6-star-twist-gadget`). Tests 175 → 184; typecheck, lint and `format:check` pass. Step 3.5 (#18) is merged. `rotate` and `hexagonFrame` moved to `core/gadgets/crease.ts`.
+Ran the Phase 3 audit (step 3.7, branch `audit/phase-3`). Tests 184 → 262; typecheck, lint and `format:check` pass. Step 3.6 (#19) is merged.
 
 ## State
 - Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`.
-- `main` has everything through step 3.5. Branch `step/3-6-star-twist-gadget` holds 3.6 and ticks it.
+- `main` has everything through step 3.6. Branch `audit/phase-3` holds the audit and ticks 3.7.
 - `.idea/` is excluded locally through `.git/info/exclude`, so the tree is otherwise clean.
 
 ## Next step
-Merge the 3.6 PR (`/next-step`). Phase 3 is then complete, so the next work is the **Phase 3 audit** (`audit/phase-3`, per the "Phase audits" section of `CLAUDE.md`), covering Phases 1 to 3, before step 4.1. `CLAUDE.md` says to ask whether you want a detailed plan before coding.
+Merge the audit PR (`/next-step`), then step **4.1** (local M/V constraints as Boolean clauses). `CLAUDE.md` says to ask whether you want a detailed plan before coding.
+
+## Phase 3 audit findings (all fixed unless noted)
+- **Nested components were skipped by the validators.** A component inside a bounded face has an outer walk with area ≤ 0, which was discarded, so its vertices never reached `visits === degree` and passed vacuously. `CreasePattern.holes[i]` now lists the outer walks nested directly in `faces[i]` (smallest containing face of another component, by `windingNumber`), and `interiorVertices` counts them. A nested tree's leaves are now flagged (odd degree).
+- Vertices whose creases are all "F" failed Kawasaki and Maekawa (empty direction list); now skipped as trivially flat.
+- `rotate(z, k)` returned z for negative k; it now reduces k mod 6 and throws for non-integers. `hexagonFrame` throws for radius < 1 (an empty ring made the validators vacuous).
+- Big-Little-Big multiplied raw directions and could overflow where Kawasaki did not; both now use `primitive` (moved to `direction.ts`).
+- `triangleTwistCreases` listed each triangle edge twice (it was merged by `fromSegments`, but would draw twice).
+- Stale comments fixed (`crease-pattern.ts` assignment note, "two necessary conditions", step numbers below).
+- Not changed: gadget frames are walked in unit steps, so a huge size hangs rather than throws. `creasePattern` validation is O(V·E + E²); revisit when Phase 4/5 use larger tilings.
+- Snapshots (`grid-r3`, `tiling-p6m-r3`) were rendered to PNG and looked at: a radius-3 hexagonal grid and a six-fold rhombus tiling, both correct.
 
 ## Gotchas and decisions
 - `/next-step` squash-merges the open PR (CI green only; stops if red, pending or ambiguous).
@@ -26,14 +36,14 @@ Merge the 3.6 PR (`/next-step`). Phase 3 is then complete, so the next work is t
 - Mirror lines of D6 are at multiples of 30°; (2,1) lies on one, so use (3,1) for a generic point in tests.
 - The brute-force test for `tile` expands by explicit translations, not `closure`, because the group is infinite and `closure` would throw.
 - `cross(u, v) = ad − bc` has the exact sign of the Cartesian cross product (the √3/2 factor is positive). Angular order uses `halfPlane` then `cross`; no floats.
-- `CreasePattern.faces` lists bounded faces only (outer boundary walks, counter-clockwise); the unbounded face is implicit, so `faceCount = faces.length + 1`. A component nested inside a face is not listed as a hole of it.
+- `CreasePattern.faces` lists bounded faces only (outer boundary walks, counter-clockwise); the unbounded face is implicit, so `faceCount = faces.length + 1`. A component nested inside a face is listed in `holes` (3.7); `faces` still holds outer walks only.
 - `rotation[i]` is vertex i's edge indices counter-clockwise from +x. Step 3.2 needs this: the sector angles between consecutive edges are what Kawasaki sums.
 - `creasePattern` rejects non-planar input (crossings, a vertex inside an edge, duplicates, self-loops) instead of splitting edges. Splitting would be its own step.
 - Half-edge h = 2e is v0→v1 and 2e + 1 is v1→v0, so the twin is `h ^ 1`.
 - `noUncheckedIndexedAccess` is on, so array reads need `at(...)`, `?.` or `!`.
 - `kawasakiFlat` takes directions in counter-clockwise cyclic order from any starting point (a shift swaps the odd and even sums, which are both π at a solution). It reduces to primitive vectors so products stay small; overflow still throws RangeError.
 - `interiorVertices` counts a vertex's appearances in `cp.faces` walks and compares with its degree; a patch's outer ring is therefore never flagged. Vertices with a "B" edge are exempt.
-- `checkLocalFlatFoldability` ignores "F" creases, runs Kawasaki on "U" creases too, and lists vertices with a "U" crease under `unassigned` instead of failing Maekawa. Both conditions are necessary only; Big-Little-Big is 3.5.
+- `checkLocalFlatFoldability` ignores "F" creases, runs Kawasaki on "U" creases too, and lists vertices with a "U" crease under `unassigned` instead of failing Maekawa. Both conditions are necessary only; Big-Little-Big is in `big-little-big.ts` (3.4).
 - The Kawasaki float cross-check test imports `RENDER_TOLERANCE` from `app/` (test only); `core/` source never does.
 - Big-Little-Big (`bigLittleBigFlat`): for a maximal run of equal sectors strictly smaller than both neighbours, the creases bounding the run must not all agree. With sectors 2π/3, π/3, π/3, 2π/3 the odd crease may be any of the three bounding the run, not only the middle one; only an odd crease outside the run is rejected. `checkLocalFlatFoldability` returns `bigLittleBig` for Kawasaki-passing, fully assigned vertices.
 - **Correction to an earlier claim:** during planning I wrongly concluded that a four-valent triangle twist cannot fold flat (I assumed the middle crease had to be the odd one). The brute-force oracle in `big-little-big.test.ts` showed M, M, M, V is foldable at such a corner, and I fixed the rule. The triangle twist as originally planned is locally valid; whether it folds globally is a Phase 5 question.
@@ -42,10 +52,10 @@ Merge the 3.6 PR (`/next-step`). Phase 3 is then complete, so the next work is t
 - A schematic crease-pattern mockup was shown in chat; it is not verified foldable.
 
 - The hexagon twist needs a "B" frame ring (hexDistance R ≥ s + 1) or no vertex is interior and Kawasaki/Maekawa pass vacuously. Rays are length R − s and end on ring lattice points, so no T-junctions.
-- The twist has a fixed chirality and is centred at 0; the mirror twist is a reflection and placement goes through `Affine`, both left for later steps (3.4 / 8.1).
+- The twist has a fixed chirality and is centred at 0; the mirror twist is a reflection and placement goes through `Affine`, both left for later steps (8.1).
 - `fromSegments` takes a per-segment `assignment` (default stays the argument); the same segment with two different assignments throws RangeError.
 
-- The triangle twist (`triangleTwist(n, m)`) is centred at n/(1−ω), which is not a lattice point, so placement and mirroring stay for later steps (3.6 / 8.1). Its rotation ρ(z) = ωz + n maps the crease set to itself. Rays end on the middle of frame sides, never at frame corners.
+- The triangle twist (`triangleTwist(n, m)`) is centred at n/(1−ω), which is not a lattice point, so placement and mirroring stay for later steps (8.1). Its rotation ρ(z) = ωz + n maps the crease set to itself. Rays end on the middle of frame sides, never at frame corners.
 - The frame is walked in unit steps, so very large sizes are slow rather than an overflow error; only non-safe-integer sizes throw.
 
 - The star twist (`starTwist(s)`) is a spoked hexagram defined from first principles (no reference photos were ever in the repo): a collapsed star, not a rotating twist. Frame radius is fixed at 3s. Its M/V assignment is only half-turn symmetric because the centre needs 2 M / 4 V (a 3-fold or 6-fold M/V pattern gives 3/3 or 6/0 there). It is chiral; the mirror star is a reflection, left for placement (8.1).

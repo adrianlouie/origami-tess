@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import { eis, type Eisenstein } from "../lattice/eisenstein";
-import { triangularGrid } from "../lattice/grid";
+import { hexDistance, triangularGrid } from "../lattice/grid";
+import { interiorVertices } from "../validate/local-flat-foldability";
 import { p6m } from "../symmetry/p6m";
 import { tile } from "../symmetry/orbit";
 import type { Motif } from "../symmetry/motif";
@@ -262,5 +263,149 @@ describe("fromSegments per-segment assignments", () => {
         ],
       ),
     ).toThrow(RangeError);
+  });
+});
+
+/** Edges of the hexagonal ring at hex distance r. */
+const ring = (r: number) =>
+  triangularGrid(r).edges.filter((e) => hexDistance(e.from) === r && hexDistance(e.to) === r);
+
+describe("nested components (holes)", () => {
+  const nested = () => {
+    const inner = [seg(pt(0, 0), pt(1, 0)), seg(pt(1, 0), pt(1, 1)), seg(pt(1, 1), pt(0, 0))];
+    return fromSegments([], [...ring(3), ...inner]);
+  };
+
+  it("lists a triangle inside a hexagon ring as a hole of the ring's face", () => {
+    const cp = nested();
+    expect(cp.faces).toHaveLength(2);
+    expect(cp.holes).toHaveLength(2);
+    const outer = cp.faces.findIndex((f) => f.length === 18);
+    expect(cp.holes[outer]).toHaveLength(1);
+    expect(cp.holes[outer]![0]).toHaveLength(3);
+    expect(cp.holes[1 - outer]).toEqual([]);
+  });
+
+  it("puts a component inside the inner face of a nested pair in the inner face", () => {
+    const cp = fromSegments(
+      [],
+      [...ring(5), ...ring(3), seg(pt(0, 0), pt(1, 0)), seg(pt(1, 0), pt(1, 1))],
+    );
+    const sizes = cp.faces.map((f) => f.length);
+    const inner = sizes.indexOf(18);
+    expect(cp.holes[inner]).toHaveLength(1);
+    expect(cp.holes[inner]![0]).toHaveLength(4);
+    expect(cp.holes.flat()).toHaveLength(2);
+  });
+
+  it("has no holes when nothing is nested or the components are side by side", () => {
+    expect(triangle().holes).toEqual([[]]);
+    expect(fromSegments([], ring(2)).holes).toEqual([[]]);
+    const far = fromSegments(
+      [],
+      [
+        seg(pt(0, 0), pt(1, 0)),
+        seg(pt(1, 0), pt(1, 1)),
+        seg(pt(1, 1), pt(0, 0)),
+        seg(pt(5, 0), pt(6, 0)),
+      ],
+    );
+    expect(far.holes).toEqual([[]]);
+  });
+
+  it("counts every sector of the nested component's vertices as interior", () => {
+    const cp = nested();
+    const inside = cp.vertices.flatMap((v, i) => (hexDistance(v) <= 1 ? [i] : []));
+    expect(interiorVertices(cp)).toEqual(expect.arrayContaining(inside));
+  });
+});
+
+describe("faces and interior vertices against a flood fill of unit triangles", () => {
+  const R = 3;
+  const grid = triangularGrid(R);
+  const k = (z: Eisenstein) => `${z.a},${z.b}`;
+  const ek = (p: Eisenstein, q: Eisenstein) => [k(p), k(q)].sort().join("|");
+
+  /** Unit triangles of the grid, each as its three vertices. */
+  const triangles: Eisenstein[][] = [];
+  for (let a = -R; a < R; a++) {
+    for (let b = -R; b < R; b++) {
+      for (const t of [
+        [pt(a, b), pt(a + 1, b), pt(a + 1, b + 1)],
+        [pt(a, b), pt(a + 1, b + 1), pt(a, b + 1)],
+      ]) {
+        if (t.every((z) => hexDistance(z) <= R)) triangles.push(t);
+      }
+    }
+  }
+  const sides = (t: Eisenstein[]) => [ek(t[0]!, t[1]!), ek(t[1]!, t[2]!), ek(t[2]!, t[0]!)];
+  const owners = new Map<string, number[]>();
+  triangles.forEach((t, i) => {
+    for (const e of sides(t)) owners.set(e, [...(owners.get(e) ?? []), i]);
+  });
+
+  /** Enclosed region id per triangle (-1 = reaches the outside), by flood fill across uncreased sides. */
+  function regions(creased: Set<string>): number[] {
+    const region = triangles.map(() => -2);
+    const fill = (start: number, id: number) => {
+      const stack = [start];
+      region[start] = id;
+      while (stack.length > 0) {
+        const t = stack.pop()!;
+        for (const e of sides(triangles[t]!)) {
+          if (creased.has(e)) continue;
+          for (const o of owners.get(e)!) {
+            if (region[o] === -2) {
+              region[o] = id;
+              stack.push(o);
+            }
+          }
+        }
+      }
+    };
+    // Triangles with an uncreased boundary side connect to the outside.
+    triangles.forEach((t, i) => {
+      if (
+        region[i] === -2 &&
+        sides(t).some((e) => owners.get(e)!.length === 1 && !creased.has(e))
+      ) {
+        fill(i, -1);
+      }
+    });
+    let next = 0;
+    triangles.forEach((_, i) => {
+      if (region[i] === -2) fill(i, next++);
+    });
+    return region;
+  }
+
+  it("matches faceCount and interiorVertices on random subgraphs (often with nested parts)", () => {
+    const edgeIndex = fc.array(fc.integer({ min: 0, max: 99 }), { minLength: 90, maxLength: 90 });
+    fc.assert(
+      fc.property(
+        edgeIndex,
+        fc.integer({ min: 25, max: 95 }),
+        fc.boolean(),
+        (dice, density, withRing) => {
+          const ringKeys = new Set(ring(R).map((e) => ek(e.from, e.to)));
+          const chosen = grid.edges.filter(
+            (e, i) => (withRing && ringKeys.has(ek(e.from, e.to))) || dice[i]! < density,
+          );
+          const cp = fromSegments([], chosen);
+          const region = regions(new Set(chosen.map((e) => ek(e.from, e.to))));
+          const enclosed = new Set(region.filter((r) => r >= 0)).size;
+          expect(faceCount(cp)).toBe(enclosed + 1);
+
+          const expected = cp.vertices.flatMap((v, i) => {
+            if (cp.rotation[i]!.length === 0) return [];
+            const around = triangles.flatMap((t, j) => (t.some((z) => k(z) === k(v)) ? [j] : []));
+            const full = hexDistance(v) < R && around.length === 6;
+            return full && around.every((j) => region[j]! >= 0) ? [i] : [];
+          });
+          expect(interiorVertices(cp)).toEqual(expected);
+        },
+      ),
+      { numRuns: 300 },
+    );
   });
 });

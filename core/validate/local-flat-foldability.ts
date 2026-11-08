@@ -4,7 +4,7 @@
  *
  * Sits at the "validate" stage of the data flow (lattice → symmetry/gadgets → pattern → validate →
  * solve → simulate/render). It reads the counter-clockwise edge order from a `CreasePattern`
- * (`rotation`) and decides, per interior vertex, the two necessary conditions for a flat fold.
+ * (`rotation`) and decides, per interior vertex, the three necessary conditions for a flat fold.
  * All are necessary, not sufficient: global layer ordering (Phase 5) is still needed. Kawasaki is
  * decided with exact integers, never angles; Big-Little-Big lives in `big-little-big.ts`.
  *
@@ -12,25 +12,10 @@
  * Maekawa–Justin theorems); Hull, "Project Origami", ch. 4.
  */
 
+import { primitive } from "../lattice/direction";
 import { conj, eis, mul, sub, type Eisenstein } from "../lattice/eisenstein";
 import type { Assignment, CreasePattern } from "../pattern/crease-pattern";
 import { bigLittleBigFlat } from "./big-little-big";
-
-/** Greatest common divisor of two non-negative integers. */
-function gcd(x: number, y: number): number {
-  return y === 0 ? x : gcd(y, x % y);
-}
-
-/**
- * Divides z by the gcd of its coordinates, giving the primitive vector on the same ray.
- *
- * A positive scalar does not change a direction, so Kawasaki's verdict is unaffected, and the
- * smaller numbers keep the products in {@link kawasakiFlat} far from the 2⁵³ limit.
- */
-function primitive(z: Eisenstein): Eisenstein {
-  const g = gcd(Math.abs(z.a), Math.abs(z.b));
-  return g <= 1 ? z : eis(z.a / g, z.b / g);
-}
 
 /**
  * Tests the Kawasaki–Justin condition: the alternating sector angles at a vertex sum to π.
@@ -83,13 +68,16 @@ export function maekawaFlat(assignments: readonly ("M" | "V")[]): boolean {
  * A vertex qualifies when it has at least one crease, none is a border edge ("B"), and every
  * sector around it lies in a bounded face. Each sector at v is one visit of v by one face walk,
  * and `faces` lists only bounded faces, so the condition is: v occurs in the face walks exactly
- * deg(v) times. Vertices on the outer ring of a patch fail it, so they are not wrongly flagged.
+ * deg(v) times. A component nested inside a face contributes its outer walk as a hole of that face,
+ * which is counted too, so its vertices are checked rather than skipped. Vertices on the outer ring
+ * of a patch fail it, so they are not wrongly flagged.
  *
  * @returns vertex indices in increasing order
  */
 export function interiorVertices(cp: CreasePattern): number[] {
   const visits = cp.vertices.map(() => 0);
-  for (const face of cp.faces) for (const v of face) visits[v] = (visits[v] ?? 0) + 1;
+  const walks = [...cp.faces, ...cp.holes.flat()];
+  for (const walk of walks) for (const v of walk) visits[v] = (visits[v] ?? 0) + 1;
   const result: number[] = [];
   cp.vertices.forEach((_, v) => {
     const around = cp.rotation[v] ?? [];
@@ -139,6 +127,8 @@ export function checkLocalFlatFoldability(cp: CreasePattern): LocalFlatFoldabili
       directions.push(sub(cp.vertices[other]!, cp.vertices[v]!));
       assignments.push(edge.assignment);
     }
+    // Only "F" creases: nothing folds here, so the vertex is trivially flat.
+    if (directions.length === 0) continue;
     const kawasakiOk = kawasakiFlat(directions);
     if (!kawasakiOk) kawasaki.push(v);
     if (assignments.includes("U")) {

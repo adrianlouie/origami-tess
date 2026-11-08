@@ -5,6 +5,7 @@ import { conj, eis, mul, rot60, type Eisenstein } from "../lattice/eisenstein";
 import { compareAngle, cross } from "../lattice/direction";
 import { hexDistance, triangularGrid } from "../lattice/grid";
 import { creasePattern, fromSegments, type Assignment } from "../pattern/crease-pattern";
+import { bigLittleBigFlat } from "./big-little-big";
 import {
   checkLocalFlatFoldability,
   interiorVertices,
@@ -298,5 +299,54 @@ describe("checkLocalFlatFoldability", () => {
       unassigned: [],
       bigLittleBig: [],
     });
+  });
+});
+
+describe("audit regressions (step 3.7)", () => {
+  const ring3 = triangularGrid(3).edges.filter(
+    (e) => hexDistance(e.from) === 3 && hexDistance(e.to) === 3,
+  );
+  const m = (from: Eisenstein, to: Eisenstein) => ({ from, to, assignment: "M" as Assignment });
+
+  it("checks the vertices of a component nested inside a face instead of skipping them", () => {
+    const triangle = [m(eis(0, 0), eis(1, 0)), m(eis(1, 0), eis(1, 1)), m(eis(1, 1), eis(0, 0))];
+    const cp = fromSegments(
+      [],
+      [...ring3.map((e) => ({ ...e, assignment: "B" as Assignment })), ...triangle],
+    );
+    // Each corner has degree 2: it is interior, and it cannot fold flat.
+    const corners = cp.vertices.flatMap((v, i) => (hexDistance(v) <= 1 ? [i] : []));
+    expect(interiorVertices(cp)).toEqual(corners);
+    expect(checkLocalFlatFoldability(cp).kawasaki).toEqual(corners);
+  });
+
+  it("treats a vertex whose creases are all flat (F) as trivially flat", () => {
+    const grid = triangularGrid(2);
+    const cp = fromSegments(
+      grid.vertices,
+      grid.edges.map((e) => ({ ...e, assignment: "F" as Assignment })),
+    );
+    expect(checkLocalFlatFoldability(cp)).toEqual({
+      kawasaki: [],
+      maekawa: [],
+      unassigned: [],
+      bigLittleBig: [],
+    });
+  });
+
+  it("keeps the Big-Little-Big verdict when directions are scaled by 2²⁶", () => {
+    const big = 2 ** 26;
+    const ds = [eis(1, 0), eis(1, 1), eis(-1, 0), eis(-1, -1)].map((d) =>
+      eis(d.a * big, d.b * big),
+    );
+    const base = [eis(1, 0), eis(1, 1), eis(-1, 0), eis(-1, -1)];
+    for (const a of [
+      ["M", "M", "M", "V"],
+      ["M", "M", "M", "M"],
+      ["V", "M", "V", "V"],
+    ] as const) {
+      expect(bigLittleBigFlat(ds, a)).toBe(bigLittleBigFlat(base, a));
+    }
+    expect(kawasakiFlat(ds)).toBe(kawasakiFlat(base));
   });
 });

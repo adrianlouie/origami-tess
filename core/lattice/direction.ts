@@ -10,7 +10,7 @@
  * identity below is derived from the Cartesian map a + bω ↦ (a − b/2, b√3/2).
  */
 
-import { checkedAdd, checkedMul, sub, type Eisenstein } from "./eisenstein";
+import { checkedAdd, checkedMul, eis, sub, type Eisenstein } from "./eisenstein";
 
 /**
  * Returns ad − bc for u = a + bω and v = c + dω.
@@ -72,4 +72,50 @@ export function onSegment(p: Eisenstein, q: Eisenstein, r: Eisenstein): boolean 
     Math.min(p.b, q.b) <= r.b &&
     r.b <= Math.max(p.b, q.b)
   );
+}
+
+/** Greatest common divisor of two non-negative integers (Euclid's algorithm). */
+export function gcd(x: number, y: number): number {
+  return y === 0 ? x : gcd(y, x % y);
+}
+
+/**
+ * Divides z by the gcd of its coordinates, giving the primitive vector on the same ray.
+ *
+ * A positive scalar does not change a direction, so every verdict that depends only on direction
+ * is unaffected, and the smaller numbers keep products far from the 2⁵³ limit. The zero vector is
+ * returned unchanged.
+ */
+export function primitive(z: Eisenstein): Eisenstein {
+  const g = gcd(Math.abs(z.a), Math.abs(z.b));
+  return g <= 1 ? z : eis(z.a / g, z.b / g);
+}
+
+/**
+ * Returns the winding number of the closed polygon `polygon` around the point `p`.
+ *
+ * Algorithm: the crossing rule of Sunday (2001), as analysed by Hormann & Agathos (2001): count
+ * +1 for each edge that crosses the horizontal ray from `p` going upward with `p` on its left, and
+ * −1 for each that crosses it going downward with `p` on its right, using the exact {@link orientation} sign. The Cartesian y of a + bω is
+ * (√3/2)b, so comparing the b coordinates compares heights exactly. The result is non-zero
+ * exactly when `p` is inside a polygon traversed counter-clockwise (1) or clockwise (−1).
+ *
+ * `p` must not lie on the boundary: the caller guarantees it, since in a planar crease graph a
+ * vertex of one component is never on another component's face boundary.
+ *
+ * @param polygon - vertices of the closed polygon in order, at least 3
+ * @param p - the query point
+ */
+export function windingNumber(polygon: readonly Eisenstein[], p: Eisenstein): number {
+  let wn = 0;
+  for (let i = 0; i < polygon.length; i++) {
+    const v0 = polygon[i]!;
+    const v1 = polygon[(i + 1) % polygon.length]!;
+    if (v0.b <= p.b) {
+      if (v1.b > p.b && orientation(v0, v1, p) > 0) wn++;
+    } else if (v1.b <= p.b && orientation(v0, v1, p) < 0) {
+      wn--;
+    }
+  }
+  return wn;
 }

@@ -17,11 +17,14 @@ export type Crease = Edge & { readonly assignment: Assignment };
  * Rotates z by k·60° (k·π/3 radians) counter-clockwise, as k applications of `rot60`.
  *
  * @param z - the point
- * @param k - a non-negative integer number of sixth-turns
+ * @param k - an integer number of sixth-turns; a negative k turns clockwise (rot60⁶ = identity,
+ *   so k is reduced mod 6)
+ * @throws RangeError if k is not a safe integer
  */
 export function rotate(z: Eisenstein, k: number): Eisenstein {
+  if (!Number.isSafeInteger(k)) throw new RangeError(`Turn count must be a safe integer, got ${k}`);
   let r = z;
-  for (let i = 0; i < k; i++) r = rot60(r);
+  for (let i = 0, n = ((k % 6) + 6) % 6; i < n; i++) r = rot60(r);
   return r;
 }
 
@@ -37,6 +40,9 @@ export function rotate(z: Eisenstein, k: number): Eisenstein {
  * @throws RangeError if a product leaves the safe-integer range (see `checkedMul`)
  */
 export function hexagonFrame(radius: number): Crease[] {
+  if (!Number.isSafeInteger(radius) || radius < 1) {
+    throw new RangeError(`Frame radius must be a safe integer >= 1, got ${radius}`);
+  }
   const ring: Crease[] = [];
   for (let k = 0; k < 6; k++) {
     const step = rotate(eis(1, 0), k + 2);

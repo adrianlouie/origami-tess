@@ -72,6 +72,13 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - M/V: aₖ = bₖ = pₖ (M, V, V repeating), eₖ = V, gₖ = M, hₖ = xₖ = y±ₖ = ¬pₖ₊₁; the centre is 2 M / 4 V, so the assignment is only half-turn symmetric
   - Frame radius is fixed at 3s because xₖ and y⁺ₖ meet on the frame there; a larger frame makes them cross
   - Negative controls: swapping the b, e, h creases fails Big-Little-Big only (6 vertices); swapping the spokes fails Maekawa at the six Pₖ
+- [x] 3.7 Phase 3 audit (`audit/phase-3`): debug and test Phases 1 to 3 per the `CLAUDE.md` "Phase audits" section
+  - Nested components were never validated: `CreasePattern` gains `holes` (outer walks of components nested in a bounded face, by exact `windingNumber`), and `interiorVertices` counts them
+  - A vertex with only "F" creases no longer fails Kawasaki and Maekawa; `rotate` handles negative and rejects non-integer k; `hexagonFrame` rejects radius < 1
+  - `primitive`/`gcd` moved to `core/lattice/direction.ts` and used by Big-Little-Big too, so it no longer overflows where Kawasaki does not
+  - `triangleTwistCreases` listed each triangle edge twice (P₁P₀ and P₀P₁); each now appears once
+  - New tests: flood-fill brute force for `faceCount` and `interiorVertices`, `windingNumber` against ray casting, `compareAngle` as a total preorder, and `gadgets.test.ts` (clean report, documented interior vertices, float sector sum, render) for all three gadgets
+  - Stale comments fixed; snapshots re-inspected as images
 
 ## Phase 4: Mountain/valley solver
 - [ ] 4.1 Local M/V constraints as Boolean clauses
