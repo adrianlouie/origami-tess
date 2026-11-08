@@ -57,10 +57,12 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - Rule: for a maximal run of k equal sectors strictly smaller than both neighbours, the k + 1 creases bounding the run must not all agree (k = 1 is the lemma: the two creases differ). Necessary only
   - `checkLocalFlatFoldability` now also returns `bigLittleBig`: Kawasaki-passing, fully assigned interior vertices that fail it
   - Cross-checked against a brute-force layer-order search for every degree-4 and degree-6 vertex from the 30° directions: necessary at both degrees, exact at degree 4
-- [ ] 3.5 Triangle twist gadget — test: Kawasaki, Maekawa and Big-Little-Big hold at every interior vertex
-  - Corners P₀ = 0, P₁ = n, P₂ = n·u, triangle edges M; at P₁ an M ray along +1 and a V ray along ω̄ = −1 − ω, each of length m; the other corners follow by the exact 120° rotation z ↦ ωz + n
+- [x] 3.5 Triangle twist gadget — test: Kawasaki, Maekawa and Big-Little-Big hold at every interior vertex
+  - `core/gadgets/triangle-twist.ts`: `triangleTwistCreases(n, m)`, `triangleTwist(n, m)`; `Crease` and `scale` moved to `core/gadgets/crease.ts` (shared with the hexagon twist)
+  - Corners P₀ = 0, P₁ = n, P₂ = n·u, triangle edges M; at P₁ an M ray along +1 and a V ray along ω̄ = −1 − ω, each of length m; the other corners follow by the exact 120° rotation ρ(z) = ωz + n
   - Sectors 2π/3, π/3, π/3, 2π/3 at each corner (Kawasaki for every n, m); 3 M + 1 V, and the lone V is on a crease bounding the two small sectors, so Big-Little-Big holds
   - Closed by a concentric triangular "B" frame of side n + 3m, with corners −m(2+ω), n + m(1−ω) and their rotation, listed as unit edges so every ray ends on a frame point
+  - Negative control: swapping M/V on every ray keeps Kawasaki and Maekawa but fails Big-Little-Big at all three corners
 - [ ] 3.6 Star twist gadget — define it from the reference photos first (a hexagram needs creases inside the star)
 
 ## Phase 4: Mountain/valley solver
