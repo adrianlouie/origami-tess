@@ -75,22 +75,34 @@ function clipArea(polys: readonly (readonly P2[])[]): number {
 /** The oracle's verdict, or `too-big` when there are more overlapping pairs than it will search. */
 export type OracleResult = "foldable" | "unfoldable" | "too-big";
 
+/** One necessary condition on the "above" relation, named after the physical situation it checks. */
+type Rule = {
+  readonly name: string;
+  readonly bits: readonly number[];
+  readonly test: (above: readonly boolean[]) => boolean;
+};
+
+/** The overlapping pairs and every physical rule among them, as built by {@link oracleRules}. */
+type OracleRules = {
+  readonly pairs: readonly (readonly [number, number])[];
+  readonly bit: ReadonlyMap<string, number>;
+  readonly rules: readonly Rule[];
+};
+
 /**
- * Decides whether a folded crease pattern with convex faces has a layer order.
+ * Builds the physical rules of a folded crease pattern with convex faces.
  *
  * @param cp - a pattern whose faces are all convex, every crease assigned
  * @param folded - from `foldFaces`
  * @param maxPairs - give up beyond this many overlapping pairs (the search is exponential in it)
- * @param faces - only consider the constraints among these faces. Every constraint is necessary for
- *   a folding, so "unfoldable" for a subset proves the whole pattern unfoldable; "foldable" only
- *   means this subset has no conflict
+ * @param faces - only consider the constraints among these faces
  */
-export function layerOracle(
+function oracleRules(
   cp: CreasePattern,
   folded: Folded,
-  maxPairs = 26,
+  maxPairs: number,
   faces?: ReadonlySet<number>,
-): OracleResult {
+): OracleRules | "too-big" {
   const pairs = overlappingFacePairs(cp, folded.transforms).filter(
     ([i, j]) => faces === undefined || (faces.has(i) && faces.has(j)),
   );
@@ -114,14 +126,13 @@ export function layerOracle(
     }
   });
 
-  /** Is face p above face q, under the assignment `mask`? */
-  const aboveBit = (mask: number, p: number, q: number): boolean => {
+  /** Is face p above face q, under the relation `mask` (one entry per overlapping pair)? */
+  const aboveBit = (mask: readonly boolean[], p: number, q: number): boolean => {
     const k = bit.get(p < q ? `${p},${q}` : `${q},${p}`);
     if (k === undefined) throw new Error(`Oracle needs faces ${p} and ${q} to overlap`);
-    const iAbove = ((mask >> k) & 1) === 1;
+    const iAbove = mask[k] === true;
     return p < q ? iAbove : !iAbove;
   };
-  type Rule = { readonly bits: readonly number[]; readonly test: (mask: number) => boolean };
   const rules: Rule[] = [];
   const seen = new Set<string>();
   const bitOf = (p: number, q: number): number => {
@@ -130,13 +141,17 @@ export function layerOracle(
     return k;
   };
   /** Adds a rule that reads only the "above" bits of the listed face pairs. */
-  const add = (key: string, uses: readonly [number, number][], test: (mask: number) => boolean) => {
+  const add = (
+    key: string,
+    uses: readonly [number, number][],
+    test: (mask: readonly boolean[]) => boolean,
+  ) => {
     if (faces && uses.some(([p, q]) => !faces.has(p) || !faces.has(q))) return;
     if (seen.has(key)) return;
     seen.add(key);
-    rules.push({ bits: [...new Set(uses.map(([p, q]) => bitOf(p, q)))], test });
+    rules.push({ name: key, bits: [...new Set(uses.map(([p, q]) => bitOf(p, q)))], test });
   };
-  const between = (mask: number, x: number, a: number, b: number) =>
+  const between = (mask: readonly boolean[], x: number, a: number, b: number) =>
     aboveBit(mask, x, a) !== aboveBit(mask, x, b);
 
   const creases = faceAdjacency(cp)
@@ -285,20 +300,66 @@ export function layerOracle(
     }
   }
 
+  return { pairs, bit, rules };
+}
+
+/**
+ * Decides whether a folded crease pattern with convex faces has a layer order.
+ *
+ * @param cp - a pattern whose faces are all convex, every crease assigned
+ * @param folded - from `foldFaces`
+ * @param maxPairs - give up beyond this many overlapping pairs (the search is exponential in it)
+ * @param faces - only consider the constraints among these faces. Every constraint is necessary for
+ *   a folding, so "unfoldable" for a subset proves the whole pattern unfoldable; "foldable" only
+ *   means this subset has no conflict
+ */
+export function layerOracle(
+  cp: CreasePattern,
+  folded: Folded,
+  maxPairs = 26,
+  faces?: ReadonlySet<number>,
+): OracleResult {
+  const built = oracleRules(cp, folded, maxPairs, faces);
+  if (built === "too-big") return "too-big";
+  const { pairs, rules } = built;
   // Depth-first search over the pair bits; a rule is checked as soon as its last bit is set.
   const lastBit: Rule[][] = pairs.map(() => []);
   for (const r of rules) {
     if (r.bits.length === 0) {
-      if (!r.test(0)) return "unfoldable";
+      if (!r.test([])) return "unfoldable";
     } else lastBit[Math.max(...r.bits)]!.push(r);
   }
-  const search = (k: number, mask: number): boolean => {
+  const current: boolean[] = pairs.map(() => false);
+  const search = (k: number): boolean => {
     if (k === pairs.length) return true;
-    for (const value of [0, 1]) {
-      const next = mask | (value << k);
-      if (lastBit[k]!.every((r) => r.test(next)) && search(k + 1, next)) return true;
+    for (const value of [false, true]) {
+      current[k] = value;
+      if (lastBit[k]!.every((r) => r.test(current)) && search(k + 1)) return true;
     }
+    current[k] = false;
     return false;
   };
-  return search(0, 0) ? "foldable" : "unfoldable";
+  return search(0) ? "foldable" : "unfoldable";
+}
+
+/**
+ * Names the physical rules that a given "above" relation breaks.
+ *
+ * The rules are the oracle's own (crease, wrap, nest, pass, transitivity), found by float sampling,
+ * so this check shares no code with the clause families of `stacking.ts`.
+ *
+ * @param above - `above(p, q)` is true when face p lies above face q; only called for overlapping pairs
+ * @param faces - only check the rules among these faces
+ * @returns the names of the broken rules, empty when the relation is a valid layer order
+ */
+export function oracleBrokenRules(
+  cp: CreasePattern,
+  folded: Folded,
+  above: (p: number, q: number) => boolean,
+  faces?: ReadonlySet<number>,
+): string[] {
+  const built = oracleRules(cp, folded, Number.POSITIVE_INFINITY, faces);
+  if (built === "too-big") throw new Error("unreachable");
+  const relation = built.pairs.map(([i, j]) => above(i, j));
+  return built.rules.filter((r) => !r.test(relation)).map((r) => r.name);
 }

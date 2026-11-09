@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { hexagonFrame, type Crease } from "../gadgets/crease";
 import { hexagonTwist } from "../gadgets/hexagon-twist";
 import { starTwist } from "../gadgets/star-twist";
 import { triangleTwist } from "../gadgets/triangle-twist";
-import { add, eis, type Eisenstein } from "../lattice/eisenstein";
-import { hexDistance } from "../lattice/grid";
 import { fromSegments, type CreasePattern } from "../pattern/crease-pattern";
 import { localMvClauses } from "./clauses";
 import { foldFaces } from "./folded-faces";
@@ -13,52 +10,7 @@ import { solveClauses, mvSolutions, withMvAssignment } from "./solver";
 import { stackingClauses, type StackingFormula } from "./stacking";
 import { allAssignments, foldsFlat, POOL, subsets } from "../validate/testing";
 import { kawasakiFlat, maekawaFlat } from "../validate/local-flat-foldability";
-import { spokePattern } from "./testing";
-
-/**
- * Whole lattice lines in a radius-2 hexagon, as unit edges inside a "B" frame, all unassigned.
- * Every crossing of lattice lines passes Kawasaki, so M/V is the only thing left to get right.
- */
-function arrangement(lines: readonly { dir: number; offset: number }[]): Crease[] {
-  const dirs = [eis(1, 0), eis(0, 1), eis(1, 1)];
-  const creases: Crease[] = hexagonFrame(2);
-  const seen = new Set<string>();
-  for (const { dir, offset } of lines) {
-    const d = dirs[dir]!;
-    const base = dir === 0 ? eis(0, offset) : eis(offset, 0);
-    const points: Eisenstein[] = [];
-    for (let t = -6; t <= 6; t++) {
-      const p = add(base, { a: d.a * t, b: d.b * t });
-      if (hexDistance(p) <= 2) points.push(p);
-    }
-    for (let i = 0; i + 1 < points.length; i++) {
-      const from = points[i]!;
-      const to = points[i + 1]!;
-      if (hexDistance(from) === 2 && hexDistance(to) === 2) continue;
-      const key = `${from.a},${from.b}-${to.a},${to.b}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      creases.push({ from, to, assignment: "U" });
-    }
-  }
-  return creases;
-}
-
-const ALL_LINES = [0, 1, 2].flatMap((dir) => [-1, 0, 1].map((offset) => ({ dir, offset })));
-
-/** Every choice of `size` lines from the nine that cross the radius-2 hexagon. */
-function lineSets(size: number): { dir: number; offset: number }[][] {
-  const out: { dir: number; offset: number }[][] = [];
-  const pick = (start: number, chosen: { dir: number; offset: number }[]) => {
-    if (chosen.length === size) {
-      out.push(chosen);
-      return;
-    }
-    for (let i = start; i < ALL_LINES.length; i++) pick(i + 1, [...chosen, ALL_LINES[i]!]);
-  };
-  pick(0, []);
-  return out;
-}
+import { arrangement, foldedOrThrow, freed, lineSets, spokePattern } from "./testing";
 
 /** The formula's verdict on a fully assigned pattern, or undefined when it does not fold at all. */
 function formulaFoldable(cp: CreasePattern): boolean | undefined {
@@ -114,22 +66,6 @@ describe("stackingClauses against the physical layer oracle (whole-pattern, conv
     expect(stats.compared).toBeGreaterThan(stats.skipped);
   });
 });
-
-function foldedOrThrow(cp: CreasePattern) {
-  const folded = foldFaces(cp);
-  if (folded.status !== "ok") throw new Error("pattern does not fold");
-  return folded;
-}
-
-/** The pattern with every M/V crease reset to "U", ready for the M/V solver. */
-function freed(cp: CreasePattern): CreasePattern {
-  return {
-    ...cp,
-    edges: cp.edges.map((e) =>
-      e.assignment === "M" || e.assignment === "V" ? { ...e, assignment: "U" as const } : e,
-    ),
-  };
-}
 
 describe("stackingClauses on the gadgets, against the layer oracle", () => {
   it.each([
