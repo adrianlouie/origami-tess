@@ -132,6 +132,10 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - Rejected alternative: the asymmetric assignment `VVM MMM VVV` (per corner: triangle edge, ray +, ray −) folds with a linear order at every size tested, but it is not threefold symmetric and so not a twist
   - Tests: acceptance at (3,1), (4,1), (6,2), (9,3); the n ≥ 3m sweep; the oracle agrees below the bound; existing tests moved to foldable sizes or to the raw fixture. Mutation check: loosening the guard fails the rejection test
 - [ ] 5.2c Star twist redesign (deferred, needs a reference) — test: `stackingClauses` is satisfiable. `starTwist(1)` has a 5-face conflict (faces 0, 4, 5, 9, 12) and none of 150 sampled locally valid assignments folds, so the crease set itself likely has to change; it was built from first principles with no reference photos
+- [ ] 5.2d Near-foldability: conflict sets and a graded score — test: a pattern that fails to fold reports a minimal conflicting set, and removing it makes the clauses satisfiable
+  - Real tessellations are often foldable only in part, and `layerOrder` answers only `ok` or `unfoldable`. Find a minimal unsatisfiable core of the stacking clauses (and of the local M/V clauses), name the faces, creases and vertices in it, and give a score such as the fewest clauses that must be dropped (MaxSAT)
+  - Check against the known cases: the star twist's 5-face conflict (faces 0, 4, 5, 9, 12 of `starTwist(1)`) and the triangle twist below n = 3m
+  - Feeds 5.3 (draw the foldable part, mark the conflict), 6.2 (the bar-and-hinge simulation shows what distortion the dropped constraints cost) and 8.2 (repair loop: change what the conflict set names)
 - [ ] 5.3 Flat-folded layered render (needs a per-region order: the hexagon twists have no global linear one, see 5.2)
 
 ## Phase 6: 3D viewer
