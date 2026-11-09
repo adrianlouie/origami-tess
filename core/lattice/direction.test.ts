@@ -142,7 +142,8 @@ describe("compareAngle as an order", () => {
   it("is a total preorder: antisymmetric and transitive (exact, no atan2)", () => {
     fc.assert(
       fc.property(nonzero, nonzero, nonzero, (u, v, w) => {
-        expect(Math.sign(compareAngle(u, v))).toBe(-Math.sign(compareAngle(v, u)));
+        // Summed, not negated: -Math.sign(0) is -0, which `toBe` (Object.is) tells apart from +0.
+        expect(Math.sign(compareAngle(u, v)) + Math.sign(compareAngle(v, u))).toBe(0);
         if (compareAngle(u, v) <= 0 && compareAngle(v, w) <= 0) {
           expect(compareAngle(u, w)).toBeLessThanOrEqual(0);
         }
