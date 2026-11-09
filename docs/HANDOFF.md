@@ -1,14 +1,14 @@
 ## Last session: 2026-11-09
-Planned and built 5.2b on `step/5-2b-triangle-twist-assignment` after merging PR #27 (5.2). The triangle twist's assignment was fine: it folds exactly when n ≥ 3m, so `triangleTwist` now rejects n < 3m. Earlier this day:
-Merged PR #26 (5.1b) with `/next-step`, planned step 5.2 in plan mode, and built it on branch `step/5-2-layer-solver`: `layerOrder`, which turns a model of the stacking clauses into a stacking of the faces. Main finding: the hexagon twists fold but have no global linear face order.
+Merged PR #28 (5.2b) with `/next-step`, planned 5.2d in plan mode, and built it on `step/5-2d-near-foldability`: conflict sets and a graded score. The star twist is a near miss, 4 of 30 faces (score 50/54). Earlier this day: 5.2 (layer solver) and 5.2b (triangle twist folds only for n ≥ 3m).
 
 ## State
-- Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`. `main` has everything through 5.2. Branch `step/5-2b-triangle-twist-assignment` holds 5.2b (PR open once pushed).
-- New: `core/solve/layer-order.ts` and its test. Changed: `core/solve/layer-oracle.ts` (rule building split out, `oracleBrokenRules`, boolean mask), `core/solve/testing.ts` (now holds `arrangement`, `lineSets`, `foldedOrThrow`, `freed`, moved out of `stacking-global.test.ts`). Tests 389 → 409; typecheck, lint and `format:check` pass.
+- Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`. `main` has everything through 5.2b. Branch `step/5-2d-near-foldability` holds 5.2d (PR open).
+- New in 5.2d: `core/solve/conflict.ts` (generic MUS and minimum repair over tagged CNF) and `core/solve/near-foldability.ts` (`nearFoldability`, `mvConflict`). Tests 409 → 443.
+- Earlier: `core/solve/layer-order.ts` and its test. Changed: `core/solve/layer-oracle.ts` (rule building split out, `oracleBrokenRules`, boolean mask), `core/solve/testing.ts` (now holds `arrangement`, `lineSets`, `foldedOrThrow`, `freed`, moved out of `stacking-global.test.ts`). Tests 389 → 409; typecheck, lint and `format:check` pass.
 - `.idea/` is excluded locally through `.git/info/exclude`.
 
 ## Next step
-Merge the 5.2b PR (`/next-step`). Ask the user first whether to plan the next step (`CLAUDE.md`). **5.3** (layered render) needs a rethink before it is planned, see below. 5.2c (star twist redesign) stays deferred.
+Merge the 5.2d PR (`/next-step`), then ask whether to plan the next step (`CLAUDE.md`). **5.2c** (star twist) is unblocked: read `nearFoldability(starTwist(1)).conflict.creases` and either change those creases or accept a partly collapsible fold; its test is reworded to "folds flat, or reports a documented minimal conflict and score". 5.3 (layered render) still needs a per-region order plan.
 
 ## Gotchas and decisions
 - `/next-step` squash-merges the open PR (CI green only; stops if red, pending or ambiguous). Each step's own PR ticks its plan box; write the handoff right after opening the PR and commit it to the same branch.
@@ -26,6 +26,8 @@ Merge the 5.2b PR (`/next-step`). Ask the user first whether to plan the next st
 - Verdicts on the shipped gadgets: hexagon twists (1,2) and (2,3) fold; triangle twist folds exactly when n ≥ 3m (`triangleTwist` throws below that; use `rawTriangleTwist` in tests for the unfoldable cases); star twist (1) does not.
 - Tests take about 20 s CPU in all (limit 30 s per test). If CI times out, thin the degree-6 samples in `stacking.test.ts` first.
 - Environment: macOS `sed` needs `-i ''` and rejects GNU escapes (use python for mutations); there is no `timeout` command; `pkill` is denied by the permission classifier.
+
+- **Near-foldability (5.2d).** A tag is a face (stacking) or vertex (M/V); giving one up drops every clause that mentions it. `minimalConflict` returns *a* minimal conflict, not the smallest: the star twist has a 4-face one ({0, 4, 5, 12}) and the engine reports a 5-face one (20, 21, 23, 24, 27). `minimumRepair` is exact up to 12 tags, else `exact: false`.
 
 ## Open questions
 - How should 5.3 draw a folding with no global order (per-cell ordering, or a transparent overlay)? Decide in its plan.
