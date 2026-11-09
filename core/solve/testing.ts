@@ -24,25 +24,44 @@ export const SPOKE_ENDS: readonly Eisenstein[] = Array.from({ length: 12 }, (_, 
  *
  * @param spokes - indices into {@link SPOKE_ENDS}, increasing so the creases are in
  *   counter-clockwise order
- * @param assignment - assignment of every spoke
+ * @param assignment - assignment of every spoke, or one per spoke in the same order
  */
-export function spokePattern(spokes: readonly number[], assignment: Assignment): CreasePattern {
+export function spokePattern(
+  spokes: readonly number[],
+  assignment: Assignment | readonly Assignment[],
+): CreasePattern {
   return fromSegments(
     [ZERO],
-    [...hexagonFrame(2), ...spokes.map((i) => ({ from: ZERO, to: SPOKE_ENDS[i]!, assignment }))],
+    [
+      ...hexagonFrame(2),
+      ...spokes.map((i, k) => ({
+        from: ZERO,
+        to: SPOKE_ENDS[i]!,
+        assignment: typeof assignment === "string" ? assignment : assignment[k]!,
+      })),
+    ],
   );
 }
 
-/** Every subset of {0, …, n − 1} with `size` elements, each in increasing order. */
-export function subsetsOf(n: number, size: number): number[][] {
-  const out: number[][] = [];
-  const pick = (start: number, chosen: number[]) => {
-    if (chosen.length === size) {
-      out.push(chosen);
-      return;
-    }
-    for (let i = start; i < n; i++) pick(i + 1, [...chosen, i]);
-  };
-  pick(0, []);
-  return out;
+/**
+ * The face counter-clockwise of each spoke of a {@link spokePattern}, in spoke order.
+ *
+ * Sector j of the single-vertex oracle lies between crease j and crease j + 1, so it is the face
+ * on the left of the ray from the origin along spoke j. A face walk keeps its face on the left of
+ * each directed pair, so that face is the walk containing the pair (origin, end of spoke j).
+ *
+ * @returns `faces[j]` is the index into `cp.faces` of the face counter-clockwise of spoke j
+ */
+export function sectorFaces(cp: CreasePattern): number[] {
+  const origin = cp.vertices.findIndex((p) => p.a === 0 && p.b === 0);
+  return cp.rotation[origin]!.map((e) => {
+    const edge = cp.edges[e]!;
+    const end = edge.v0 === origin ? edge.v1 : edge.v0;
+    return cp.faces.findIndex((walk) =>
+      walk.some((v, i) => v === origin && walk[(i + 1) % walk.length] === end),
+    );
+  });
 }
+
+/** Every subset of {0, …, n − 1} with `size` elements, each in increasing order. */
+export { subsets as subsetsOf } from "../validate/testing";

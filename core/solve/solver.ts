@@ -172,17 +172,43 @@ function dpll(variableCount: number, clauses: readonly (readonly Literal[])[]): 
  *   nonzero integer with |literal| ≤ `variableCount`
  */
 function checkFormula(formula: MvFormula): void {
-  const n = formula.variableCount;
+  checkClauses(
+    formula.variableCount,
+    formula.clauses.map((c) => c.literals),
+  );
+}
+
+/** The literal-list form of {@link checkFormula}, shared with {@link solveClauses}. */
+function checkClauses(n: number, clauses: readonly (readonly Literal[])[]): void {
   if (!Number.isInteger(n) || n < 0) {
     throw new RangeError(`variableCount must be a non-negative integer, got ${n}`);
   }
-  for (const clause of formula.clauses) {
-    for (const l of clause.literals) {
+  for (const literals of clauses) {
+    for (const l of literals) {
       if (!Number.isInteger(l) || l === 0 || Math.abs(l) > n) {
         throw new RangeError(`Literal ${l} is not a nonzero integer within ±${n}`);
       }
     }
   }
+}
+
+/**
+ * Finds one model of a plain CNF formula, by DPLL.
+ *
+ * The solver behind {@link solveFormula}, for formulas that are not about mountain/valley
+ * variables (the stacking clauses of step 5.1b use it directly).
+ *
+ * @param variableCount - variables are 1 … variableCount (DIMACS)
+ * @param clauses - each a disjunction of nonzero literals
+ * @returns `model[v − 1]` for variable v (unconstrained variables read false), or null if unsat
+ * @throws RangeError if the formula is malformed (see {@link checkClauses})
+ */
+export function solveClauses(
+  variableCount: number,
+  clauses: readonly (readonly Literal[])[],
+): boolean[] | null {
+  checkClauses(variableCount, clauses);
+  return dpll(variableCount, clauses).model;
 }
 
 /** The vertices named by the clauses with these indices, sorted and without repeats. */
