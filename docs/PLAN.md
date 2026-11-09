@@ -63,6 +63,7 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - Sectors 2π/3, π/3, π/3, 2π/3 at each corner (Kawasaki for every n, m); 3 M + 1 V, and the lone V is on a crease bounding the two small sectors, so Big-Little-Big holds
   - Closed by a concentric triangular "B" frame of side n + 3m, with corners −m(2+ω), n + m(1−ω) and their rotation, listed as unit edges so every ray ends on a frame point
   - Negative control: swapping M/V on every ray keeps Kawasaki and Maekawa but fails Big-Little-Big at all three corners
+  - Found in 5.1b: the shipped assignment is locally valid but does **not** fold flat (see 5.2b)
 - [x] 3.6 Star twist gadget — test: Kawasaki, Maekawa and Big-Little-Big hold at every interior vertex
   - `core/gadgets/star-twist.ts`: `starTwistCreases(s)`, `starTwist(s)`; `rotate` and `hexagonFrame` moved to `core/gadgets/crease.ts`
   - No reference photos exist in the repo, so this is a spoked hexagram defined from first principles: a collapsed star, not a rotating twist
@@ -72,6 +73,7 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - M/V: aₖ = bₖ = pₖ (M, V, V repeating), eₖ = V, gₖ = M, hₖ = xₖ = y±ₖ = ¬pₖ₊₁; the centre is 2 M / 4 V, so the assignment is only half-turn symmetric
   - Frame radius is fixed at 3s because xₖ and y⁺ₖ meet on the frame there; a larger frame makes them cross
   - Negative controls: swapping the b, e, h creases fails Big-Little-Big only (6 vertices); swapping the spokes fails Maekawa at the six Pₖ
+  - Found in 5.1b: `starTwist(1)` is locally valid but does **not** fold flat (see 5.2c)
 - [x] 3.7 Phase 3 audit (`audit/phase-3`): debug and test Phases 1 to 3 per the `CLAUDE.md` "Phase audits" section
   - Nested components were never validated: `CreasePattern` gains `holes` (outer walks of components nested in a bounded face, by exact `windingNumber`), and `interiorVertices` counts them
   - A vertex with only "F" creases no longer fails Kawasaki and Maekawa; `rotate` handles negative and rejects non-integer k; `hexagonFrame` rejects radius < 1
@@ -117,6 +119,10 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - Mutation check: each of the six clause kinds, the crease orientation, the common-point rule of transitivity, the diagonal rule of `segmentCrossesFace` and the opposite-side rule of taco-taco was broken in turn, and a test failed every time
   - **Finding: the shipped triangle twist and star twist do not fold flat.** `triangleTwist` (1,1), (2,1) and (1,3) and `starTwist(1)` are unsatisfiable, and the oracle agrees; the hexagon twists (1,2) and (2,3) are satisfiable. Phase 3 only proved them locally valid. For the triangle twist other locally valid M/V assignments of the same creases do fold (12 of 26 for (1,1), 24 of 26 for (2,1)), so only the assignment is wrong. The star twist has a 5-face conflict (faces 0, 4, 5, 9, 12 of `starTwist(1)`) and none of 150 sampled locally valid assignments fold, so its crease set likely needs redesign
 - [ ] 5.2 Layer solver — test: known flat-foldable patterns yield a valid order
+  - Turn a `solveClauses` model over `stackingClauses` into a stacking of the faces, and check the order independently of the formula (no sheet crossing a crease), not only that the formula is satisfiable. Known-foldable inputs: the hexagon twists (1,2) and (2,3)
+  - Profile transitivity first (every face pair, then triple, with exact BigInt clipping); Rust→WASM only if needed
+- [ ] 5.2b Repair the triangle twist's M/V assignment — test: `stackingClauses` is satisfiable and `layerOracle` agrees. The shipped `triangleTwist` (1,1), (2,1) and (1,3) do not fold flat, but other locally valid assignments of the same creases do (12 of 26 for (1,1), 24 of 26 for (2,1)); use 5.2 to pick one, and say in the gadget's TSDoc why
+- [ ] 5.2c Star twist redesign (deferred, needs a reference) — test: `stackingClauses` is satisfiable. `starTwist(1)` has a 5-face conflict (faces 0, 4, 5, 9, 12) and none of 150 sampled locally valid assignments folds, so the crease set itself likely has to change; it was built from first principles with no reference photos
 - [ ] 5.3 Flat-folded layered render
 
 ## Phase 6: 3D viewer
@@ -138,5 +144,7 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
 
 ## Known risks
 - Layer ordering is NP-hard in general; structured tessellations should be tractable. If the TypeScript solver is too slow, port that module to Rust→WASM.
+- Passing the local validators (Kawasaki, Maekawa, Big-Little-Big) does not mean a pattern folds flat: two of the three gadgets passed them and still fail. Run `stackingClauses` on every new gadget or generated pattern (8.2 especially).
+- The whole-pattern test oracle (`core/solve/layer-oracle.ts`) covers convex faces and about 26 overlapping pairs; bigger or non-convex patterns are only checked on face subsets, so 5.2 needs its own independent order check.
 - Twist folds are not rigid-foldable, so the 3D animation is approximate; the flat-folded render is the accurate one.
 - Matching the style of the reference photos is realistic; matching them exactly is a stretch goal.
