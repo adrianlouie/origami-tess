@@ -12,7 +12,7 @@
  * have disjoint interiors iff some edge line separates them).
  */
 
-import { orientation } from "../lattice/direction";
+import { cross, orientation } from "../lattice/direction";
 import type { Eisenstein } from "../lattice/eisenstein";
 import type { CreasePattern, Face } from "../pattern/crease-pattern";
 import { apply, type Affine } from "../symmetry/affine";
@@ -172,7 +172,7 @@ export function overlapPairsOf(folded: readonly (readonly Triangle[])[]): [numbe
   return out;
 }
 
-/** Do two bounding boxes (see {@link boxOf}) have overlapping interiors? */
+/** Do the bounding boxes of two triangulations have overlapping interiors? A cheap reject test. */
 export function trianglesBoxesMeet(x: readonly Triangle[], y: readonly Triangle[]): boolean {
   return boxesMeet(boxOf(x), boxOf(y));
 }
@@ -201,19 +201,23 @@ export function segmentsOverlapCollinear(
 }
 
 /**
- * Do two collinear segments point the same way? (+1) or opposite ways (−1).
+ * Do two parallel segments point the same way (+1) or opposite ways (−1)?
  *
- * @throws RangeError if either segment has zero length
+ * Parallel segments are compared along one lattice coordinate: the one in which pq varies, which a
+ * parallel segment must vary in too. That coordinate is linear in position, so the sign of the
+ * product of the two changes is the sign of the dot product of the directions.
+ *
+ * @throws RangeError if either segment has zero length or the two are not parallel
  */
 export function sameDirection(p: Eisenstein, q: Eisenstein, r: Eisenstein, s: Eisenstein): 1 | -1 {
-  const along = (u: Eisenstein, v: Eisenstein) => {
-    const d = p.a !== q.a ? [v.a - u.a, q.a - p.a] : [v.b - u.b, q.b - p.b];
-    return Math.sign(d[0]!) * Math.sign(d[1]!);
-  };
-  if ((r.a === s.a && r.b === s.b) || (p.a === q.a && p.b === q.b)) {
+  const d1 = { a: q.a - p.a, b: q.b - p.b };
+  const d2 = { a: s.a - r.a, b: s.b - r.b };
+  if ((d1.a === 0 && d1.b === 0) || (d2.a === 0 && d2.b === 0)) {
     throw new RangeError("Segment has zero length");
   }
-  return along(r, s) >= 0 ? 1 : -1;
+  if (cross(d1, d2) !== 0) throw new RangeError("Segments are not parallel");
+  const [x, y] = d1.a !== 0 ? [d1.a, d2.a] : [d1.b, d2.b];
+  return x * y > 0 ? 1 : -1;
 }
 
 /** A half-plane A·x + B·y + C > 0 in lattice coordinates, with exact big integers. */
@@ -226,8 +230,9 @@ type HalfPlane = { readonly A: bigint; readonly B: bigint; readonly C: bigint };
  * in r = (x, y) = (r.a, r.b); its sign is the side of r (see `lattice/direction.ts`).
  */
 function leftOf(u: Eisenstein, v: Eisenstein): HalfPlane {
-  const dx = BigInt(v.a - u.a);
-  const dy = BigInt(v.b - u.b);
+  // Subtract as BigInt: the Number difference of two large coordinates could already be inexact.
+  const dx = BigInt(v.a) - BigInt(u.a);
+  const dy = BigInt(v.b) - BigInt(u.b);
   return { A: -dy, B: dx, C: dy * BigInt(u.a) - dx * BigInt(u.b) };
 }
 

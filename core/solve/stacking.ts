@@ -101,10 +101,22 @@ type FoldedCrease = {
  * @param cp - a pattern with every crease assigned M, V, F or B
  * @param folded - the result of `foldFaces`
  * @returns the variables and clauses; satisfiable iff the pattern folds flat in this placement
- * @throws RangeError if a crease is unassigned
+ * @throws RangeError if a crease is unassigned, or `folded` does not match the pattern (wrong
+ *   length, or a flip flag that disagrees with its map)
  * @throws Error if a clause needs a pair that does not overlap, which would be a geometry bug
  */
 export function stackingClauses(cp: CreasePattern, folded: Folded): StackingFormula {
+  if (folded.transforms.length !== cp.faces.length || folded.flipped.length !== cp.faces.length) {
+    throw new RangeError(
+      `Expected ${cp.faces.length} transforms and flip flags, got ${folded.transforms.length} and ${folded.flipped.length}`,
+    );
+  }
+  folded.transforms.forEach((f, i) => {
+    // A flip flag that disagrees with its map would silently invert every crease clause.
+    if ((f.m[0] * f.m[3] - f.m[1] * f.m[2] === -1) !== folded.flipped[i]) {
+      throw new RangeError(`Face ${i} is flagged ${folded.flipped[i]} but its map says otherwise`);
+    }
+  });
   const triangles = foldedTriangles(cp, folded.transforms);
   const pairs = overlapPairsOf(triangles);
   const variable = new Map<string, number>();
@@ -183,7 +195,10 @@ export function stackingClauses(cp: CreasePattern, folded: Folded): StackingForm
       const edges = [c.edge, d.edge] as const;
 
       if (isTaco(c) && isTaco(d)) {
-        if (side(c, c.left) !== sideD(d.left)) continue; // opposite sides: separate half-planes
+        // Folds on opposite sides of the line have wraps that bulge away from each other, so in the
+        // limit of the folding one can be shifted off the other by an infinitesimal step along the
+        // normal. No order of their layers is forced, and their faces do not overlap anyway.
+        if (side(c, c.left) !== sideD(d.left)) continue;
         const first: readonly [number, number] = [c.left, c.right];
         const second: readonly [number, number] = [d.left, d.right];
         // Interleaving chains p1 < p2 < p3 < p4, bottom to top, with one fold at p1, p3 and the
@@ -238,7 +253,9 @@ export function stackingClauses(cp: CreasePattern, folded: Folded): StackingForm
 
   return Object.freeze({
     variableCount: pairs.length,
-    pairs: Object.freeze(pairs),
-    clauses: Object.freeze(clauses),
+    pairs: Object.freeze(pairs.map((p) => Object.freeze(p))),
+    clauses: Object.freeze(
+      clauses.map((c) => Object.freeze({ ...c, literals: Object.freeze(c.literals) })),
+    ),
   });
 }
