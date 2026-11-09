@@ -106,7 +106,13 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - `foldFaces`: BFS over the adjacency graph, F_b = F_a ∘ ρ_e across M/V, F_b = F_a across F, "B" not crossed. A non-tree crease that disagrees returns `{status: "inconsistent", edges}`; "U" creases and faces with holes throw
   - `core/solve/overlap.ts`: `triangulateFace` (ear clipping, collinear vertices dropped first), `trianglesOverlap` (exact separating-axis test), `overlappingFacePairs(cp, transforms)`
   - Test: for spokes at multiples of 30° in a radius-2 frame, `foldFaces` is "ok" exactly when `kawasakiFlat` holds (all 2497 subsets of 2 to 6 spokes); gadgets fold consistently and agree on every crease; overlap matches an independent unit-triangle brute force, and `trianglesOverlap` matches a float clipping area
-- [ ] 5.1b Stacking constraints as clauses (taco-taco, taco-tortilla, tortilla-tortilla, transitivity) — test: clauses satisfiable exactly when the single-vertex `foldsFlat` oracle says the vertex folds
+- [x] 5.1b Stacking constraints as clauses (taco-taco, taco-tortilla, tortilla-tortilla, transitivity) — test: clauses satisfiable exactly when the single-vertex `foldsFlat` oracle says the vertex folds
+  - `core/solve/stacking.ts`: `stackingClauses(cp, folded)` returns `{variableCount, pairs, clauses}`; pair k = [i, j] (i < j, from `overlappingFacePairs`) is variable k + 1, true = "face i above face j". `aboveLiteral(formula, p, q)` looks a pair up
+  - Six clause kinds, each tagged with its source: `crease` (M/V fixes the order: the right face is above iff V XOR the left face is flipped), `taco-taco`, `taco-tortilla`, `tortilla-tortilla`, `crossing` (a face whose interior contains a crease is above both of its faces or below both) and `transitivity` (only for triples with a common interior point; a pairwise-overlapping ring may be stacked cyclically)
+  - `core/solve/overlap.ts` gains exact helpers: `foldedTriangles`, `overlapPairsOf`, `segmentsOverlapCollinear`, `sameDirection`, `segmentCrossesFace` (a segment along a triangulation diagonal counts as crossing), `trianglesShareInterior` (BigInt half-plane intersection)
+  - `core/solve/solver.ts` exports `solveClauses(variableCount, clauses)`, the plain-CNF entry point 5.2 will use
+  - The brute-force oracle moved to `core/validate/testing.ts` (`foldsFlat`, `layerOrderValid`, `candidates`, …)
+  - Test: every Kawasaki vertex of degree 4 and 6 with all 2ⁿ M/V strings (including Maekawa failures) agrees with `foldsFlat`; at degree 4 every layer order is accepted exactly when `layerOrderValid` is (this pins the M/V convention); F spokes added to degree-2 and degree-4 vertices must not change the answer. Each of crease, taco-taco, crossing, transitivity, taco-tortilla and tortilla-tortilla was removed in turn and a test failed
 - [ ] 5.2 Layer solver — test: known flat-foldable patterns yield a valid order
 - [ ] 5.3 Flat-folded layered render
 
