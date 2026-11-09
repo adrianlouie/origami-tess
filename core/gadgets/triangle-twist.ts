@@ -36,6 +36,10 @@ import { scale, type Crease } from "./crease";
  * frame point also avoids T-junctions where a ray ends. Every ray ends in the interior of a
  * frame side, never at a frame corner.
  *
+ * This lists the raw geometry for any n, m ≥ 1. It is locally valid for all of them, but it folds
+ * flat only when n ≥ 3m (see {@link triangleTwist}); below that it is a ready-made example of a
+ * pattern that passes every vertex check and still cannot fold.
+ *
  * @param side - triangle side n, a safe integer ≥ 1 (lattice units)
  * @param rayLength - ray length m, a safe integer ≥ 1 (lattice units)
  * @throws RangeError for sizes outside those ranges or too large for exact arithmetic
@@ -86,15 +90,29 @@ export function triangleTwistCreases(side: number, rayLength: number): Crease[] 
 }
 
 /**
- * Builds the triangle twist as a crease pattern.
+ * Builds the triangle twist as a crease pattern that folds flat.
  *
  * The three corners Pₖ are the only interior vertices, so a validator run over the result checks
  * exactly the twist's vertices. See {@link triangleTwistCreases} for the construction.
  *
+ * Folds flat exactly when n ≥ 3m. The M/V assignment is not what fails below that: with threefold
+ * symmetry, Big-Little-Big leaves only this assignment and its global flip, and the flip folds the
+ * same way. For n < 3m the stacking clauses (`stackingClauses`, step 5.1b) are unsatisfiable and the
+ * independent layer oracle agrees; for n ≥ 3m they are satisfiable. The bound was found by running
+ * `layerOrder` over n ≤ 12 and m ≤ 4 (pinned by the sweep in `layer-order.test.ts`), not derived in
+ * closed form. A fold that is flat has its six pleat faces stacked cyclically, as in the hexagon
+ * twists, so `layerOrder` returns `order: null` and a layered render must order faces per region.
+ *
  * @param side - triangle side n, a safe integer ≥ 1
- * @param rayLength - ray length m, a safe integer ≥ 1
- * @throws RangeError as {@link triangleTwistCreases} does
+ * @param rayLength - ray length m, a safe integer ≥ 1, at most n / 3
+ * @throws RangeError as {@link triangleTwistCreases} does, and when n < 3m
  */
 export function triangleTwist(side: number, rayLength: number): CreasePattern {
-  return fromSegments([], triangleTwistCreases(side, rayLength));
+  const creases = triangleTwistCreases(side, rayLength);
+  if (side < 3 * rayLength) {
+    throw new RangeError(
+      `Triangle twist (n=${side}, m=${rayLength}) does not fold flat: need n >= 3m`,
+    );
+  }
+  return fromSegments([], creases);
 }

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { hexagonTwist } from "../gadgets/hexagon-twist";
 import { starTwist } from "../gadgets/star-twist";
-import { triangleTwist } from "../gadgets/triangle-twist";
 import { fromSegments, type CreasePattern } from "../pattern/crease-pattern";
 import { localMvClauses } from "./clauses";
 import { foldFaces } from "./folded-faces";
@@ -10,7 +9,14 @@ import { solveClauses, mvSolutions, withMvAssignment } from "./solver";
 import { stackingClauses, type StackingFormula } from "./stacking";
 import { allAssignments, foldsFlat, POOL, subsets } from "../validate/testing";
 import { kawasakiFlat, maekawaFlat } from "../validate/local-flat-foldability";
-import { arrangement, foldedOrThrow, freed, lineSets, spokePattern } from "./testing";
+import {
+  arrangement,
+  foldedOrThrow,
+  freed,
+  lineSets,
+  rawTriangleTwist,
+  spokePattern,
+} from "./testing";
 
 /** The formula's verdict on a fully assigned pattern, or undefined when it does not fold at all. */
 function formulaFoldable(cp: CreasePattern): boolean | undefined {
@@ -69,8 +75,8 @@ describe("stackingClauses against the physical layer oracle (whole-pattern, conv
 
 describe("stackingClauses on the gadgets, against the layer oracle", () => {
   it.each([
-    ["triangle twist (1, 1)", triangleTwist(1, 1)],
-    ["triangle twist (2, 1)", triangleTwist(2, 1)],
+    ["triangle twist (1, 1)", rawTriangleTwist(1, 1)],
+    ["triangle twist (2, 1)", rawTriangleTwist(2, 1)],
   ])("agrees on every locally valid M/V assignment of the %s", (_, shipped) => {
     // Every assignment here passes Maekawa and Big-Little-Big at every vertex, so any failure to
     // fold is a global one that only the stacking constraints can see.
@@ -98,12 +104,13 @@ describe("stackingClauses on the gadgets, against the layer oracle", () => {
   });
 
   it.each([
-    ["triangle twist (1, 1)", triangleTwist(1, 1)],
-    ["triangle twist (2, 1)", triangleTwist(2, 1)],
-    ["triangle twist (1, 3)", triangleTwist(1, 3)],
-  ])("finds the shipped %s unfoldable, as the oracle does", (_, cp) => {
-    // Locally valid (Phase 3) but not globally: the assignment is one of the bad ones, while other
-    // locally valid assignments of the same creases do fold (see the test above).
+    ["triangle twist (1, 1)", rawTriangleTwist(1, 1)],
+    ["triangle twist (2, 1)", rawTriangleTwist(2, 1)],
+    ["triangle twist (1, 3)", rawTriangleTwist(1, 3)],
+    ["triangle twist (5, 2)", rawTriangleTwist(5, 2)],
+  ])("finds the %s below n >= 3m unfoldable, as the oracle does", (_, cp) => {
+    // Locally valid (Phase 3) but not globally: the pleats collide when n < 3m, while other locally
+    // valid assignments of the same creases do fold (see the test above).
     expect(layerOracle(cp, foldedOrThrow(cp), 60)).toBe("unfoldable");
     expect(formulaFoldable(cp)).toBe(false);
   });
@@ -144,8 +151,8 @@ describe("stackingClauses and the layer oracle agree on every sampled set of fac
   // search is out of the oracle's range (the star twist has 435 overlapping pairs).
   it.each([
     ["star twist (1)", starTwist(1)],
-    ["triangle twist (1, 1)", triangleTwist(1, 1)],
-    ["triangle twist (2, 1)", triangleTwist(2, 1)],
+    ["triangle twist (1, 1)", rawTriangleTwist(1, 1)],
+    ["triangle twist (2, 1)", rawTriangleTwist(2, 1)],
     ["hexagon twist (2, 3)", hexagonTwist(2, 3)],
   ])("on the %s", (_, cp) => {
     const folded = foldedOrThrow(cp);

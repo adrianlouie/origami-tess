@@ -19,7 +19,7 @@ function facesUsing(cp: CreasePattern, u: number, v: number): number[] {
 
 const patterns: [string, CreasePattern][] = [
   ["hexagon twist", hexagonTwist(2, 4)],
-  ["triangle twist", triangleTwist(2, 1)],
+  ["triangle twist", triangleTwist(6, 2)],
   ["star twist", starTwist(1)],
   ["two opposite spokes", spokePattern([0, 6], "M")],
   ["four spokes", spokePattern([0, 4, 6, 8], "M")],

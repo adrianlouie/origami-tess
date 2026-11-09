@@ -40,10 +40,10 @@ function cases(): Case[] {
     });
   }
   for (const [n, m] of [
-    [1, 1],
-    [2, 1],
-    [1, 3],
-    [3, 2],
+    [3, 1],
+    [4, 1],
+    [6, 2],
+    [9, 3],
   ] as const) {
     const p1 = eis(n, 0);
     // Corners P₀ = 0, P₁ = n, P₂ = n·u.
