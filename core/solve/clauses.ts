@@ -66,7 +66,8 @@ const mountain = (e: number): Literal => e + 1;
  * Maekawa–Justin (D&O Thm 12.2.4): a flat-foldable vertex of degree n has #M − #V = ±2, that is
  * #M ∈ {n/2 − 1, n/2 + 1}. Each full assignment outside that set is excluded by one blocking
  * clause (the negation of the assignment), which gives 2ⁿ − 2·C(n, n/2 + 1) clauses. Odd degree
- * can never satisfy the theorem, so it yields the empty clause.
+ * can never satisfy the theorem, so it yields the empty clause; so does degree 0 (#M = 0 is not
+ * ±1), though `localMvClauses` never calls this for a vertex without folding creases.
  *
  * Big-Little-Big (D&O §12.2): for every run of small sectors from {@link smallSectorRuns}, the
  * bounding creases must not all agree, which is the pair (x₁ ∨ … ∨ x_m) and (¬x₁ ∨ … ∨ ¬x_m).

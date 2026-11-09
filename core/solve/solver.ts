@@ -161,6 +161,30 @@ function dpll(variableCount: number, clauses: readonly (readonly Literal[])[]): 
   }
 }
 
+/**
+ * Rejects a formula the solver cannot read.
+ *
+ * The solver indexes its value table by |literal| − 1, so a zero, fractional or out-of-range
+ * literal would read `undefined` and be treated as satisfied (negative) or false (positive)
+ * instead of failing.
+ *
+ * @throws RangeError if `variableCount` is not a non-negative integer, or a literal is not a
+ *   nonzero integer with |literal| ≤ `variableCount`
+ */
+function checkFormula(formula: MvFormula): void {
+  const n = formula.variableCount;
+  if (!Number.isInteger(n) || n < 0) {
+    throw new RangeError(`variableCount must be a non-negative integer, got ${n}`);
+  }
+  for (const clause of formula.clauses) {
+    for (const l of clause.literals) {
+      if (!Number.isInteger(l) || l === 0 || Math.abs(l) > n) {
+        throw new RangeError(`Literal ${l} is not a nonzero integer within ±${n}`);
+      }
+    }
+  }
+}
+
 /** The vertices named by the clauses with these indices, sorted and without repeats. */
 function verticesOf(formula: MvFormula, core: readonly number[]): number[] {
   const vertices = new Set<number>();
@@ -178,8 +202,10 @@ function verticesOf(formula: MvFormula, core: readonly number[]): number[] {
  * no M/V choice can fix them and a "solution" would be misleading.
  *
  * @returns an assignment with one Boolean per edge, or why there is none
+ * @throws RangeError if the formula is malformed (see {@link checkFormula})
  */
 export function solveFormula(formula: MvFormula): MvResult {
+  checkFormula(formula);
   if (formula.kawasaki.length > 0) return { status: "kawasaki", vertices: formula.kawasaki };
   const search = dpll(
     formula.variableCount,
@@ -196,8 +222,11 @@ export function solveFormula(formula: MvFormula): MvResult {
  * blocking clause and the search restarts, so solutions are distinct and none is missed. Variables
  * in no clause are always false and do not multiply the count. Phase 5 can pull candidates until
  * one admits a layer ordering. Yields nothing if the formula has Kawasaki failures.
+ *
+ * @throws RangeError on the first `next()` if the formula is malformed (see {@link checkFormula})
  */
 export function* mvSolutions(formula: MvFormula): Generator<readonly boolean[]> {
+  checkFormula(formula);
   if (formula.kawasaki.length > 0) return;
   const clauses: (readonly Literal[])[] = formula.clauses.map((c) => c.literals);
   const used = [...new Set(clauses.flat().map((l) => Math.abs(l) - 1))].sort((a, b) => a - b);
@@ -225,7 +254,7 @@ export function solveMv(cp: CreasePattern): MvResult {
 /**
  * Returns the pattern with its "U" creases set from an assignment; geometry is shared, not copied.
  *
- * Only "U" creases change. A "U" crease that no interior vertex constrains reads false from the
+ * Only "U" creases change; the result is frozen like any pattern from `creasePattern`. A "U" crease that no interior vertex constrains reads false from the
  * solver, so it becomes a valley. "B" and "F" creases are never touched.
  *
  * @param assignment - one Boolean per edge, true for mountain
@@ -248,5 +277,5 @@ export function withMvAssignment(cp: CreasePattern, assignment: readonly boolean
     const assigned: Assignment = mountain ? "M" : "V";
     return Object.freeze({ v0: edge.v0, v1: edge.v1, assignment: assigned });
   });
-  return { ...cp, edges };
+  return Object.freeze({ ...cp, edges: Object.freeze(edges) });
 }

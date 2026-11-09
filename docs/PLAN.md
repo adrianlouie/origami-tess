@@ -93,6 +93,11 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - DPLL with unit propagation and an explicit backtracking stack; branches valley first, so results are deterministic. A formula with Kawasaki failures returns `kawasaki` without searching
   - `unsat` names the vertices on the propagation chain when the conflict needs no branching, otherwise `vertices: []`; it is not a minimal core
   - Test: each gadget with every M/V crease reset to "U" is solved and passes `checkLocalFlatFoldability` cleanly; sat/unsat agrees with brute force on random freed/flipped creases; `mvSolutions` count equals brute force
+- [x] 4.3 Phase 4 audit (`audit/phase-4`): debug and test Phases 1 to 4 per the `CLAUDE.md` "Phase audits" section
+  - `solveFormula` and `mvSolutions` now reject malformed formulas (zero, fractional or out-of-range literals, bad `variableCount`) with `RangeError`; before, such a literal read `undefined` and a hand-built clause like `[0]` was "satisfied"
+  - `withMvAssignment` returns a frozen pattern with frozen edges, like `creasePattern`
+  - `vitest.config.ts` sets `testTimeout: 30_000` for the load-sensitive property tests
+  - New tests: DPLL and `mvSolutions` against brute force on random CNF; random line arrangements (all Kawasaki) checked against `checkLocalFlatFoldability` as an independent oracle, covering both sat and unsat; determinism; degree 0 and degree 2 clauses
 
 ## Phase 5: Layer ordering
 - [ ] 5.1 Face adjacency and stacking constraints (taco-taco, taco-tortilla, tortilla-tortilla)

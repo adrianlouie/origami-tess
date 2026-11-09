@@ -1,13 +1,21 @@
-## Last session: 2026-11-07
-Did step 4.2 (branch `step/4-2-sat-solver`). Tests 282 → 305; typecheck, lint and `format:check` pass. The Phase 3 audit (#20) is merged.
+## Last session: 2026-11-08
+Did the Phase 4 audit (step 4.3, branch `audit/phase-4`). Tests 305 → 313; typecheck, lint and `format:check` pass. The 4.2 PR (#22) is merged.
 
 ## State
 - Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`.
-- `main` has everything through step 4.1. Branch `step/4-2-sat-solver` holds step 4.2.
+- `main` has everything through step 4.2. Branch `audit/phase-4` holds the audit.
 - `.idea/` is excluded locally through `.git/info/exclude`, so the tree is otherwise clean.
 
 ## Next step
-Merge the 4.2 PR (`/next-step`), then step **5.1** (face adjacency and stacking constraints). Phase 4 is then complete, so `CLAUDE.md` calls for a Phase 4 audit (`audit/phase-4`) before 5.1. `CLAUDE.md` also says to ask whether you want a detailed plan before coding.
+Merge the audit PR (`/next-step`), then step **5.1** (face adjacency and stacking constraints). `CLAUDE.md` also says to ask whether you want a detailed plan before coding.
+
+## Phase 4 audit findings (all fixed unless noted)
+- **Malformed formulas were silently accepted.** The solver indexes its value table by |literal| − 1, so literal 0 or one beyond `variableCount` read `undefined`: a negative one counted as satisfied. `checkFormula` now throws `RangeError` from `solveFormula` and `mvSolutions` (the latter on the first `next()`).
+- `withMvAssignment` returned unfrozen objects; it now freezes the pattern and its edges.
+- `vertexClauses` at degree 0 gives the empty Maekawa clause (documented; `localMvClauses` never reaches it). Degree 2 allows only MM or VV (tested).
+- The `orbit`/`star-twist` timeouts are fixed by `testTimeout: 30_000` in `vitest.config.ts`. Three parallel `npm test` runs all pass.
+- Checked with no change needed: the Maekawa clause count 2ⁿ − 2·C(n, n/2+1), the Big-Little-Big "not all equal" pair, the DPLL reference, and the `unsat.vertices` caveat all match their TSDoc. The solver agrees with brute force on random CNF and with the validator on random line arrangements.
+- Not changed, for Phase 5's larger tilings: gadget frames are walked in unit steps; `creasePattern` validation is O(V·E + E²); the solver rescans every clause each round (no watched literals); `mvSolutions` restarts from scratch per solution.
 
 ## Phase 3 audit findings (all fixed unless noted)
 - **Nested components were skipped by the validators.** A component inside a bounded face has an outer walk with area ≤ 0, which was discarded, so its vertices never reached `visits === degree` and passed vacuously. `CreasePattern.holes[i]` now lists the outer walks nested directly in `faces[i]` (smallest containing face of another component, by `windingNumber`), and `interiorVertices` counts them. A nested tree's leaves are now flagged (odd degree).
@@ -75,7 +83,7 @@ Merge the 4.2 PR (`/next-step`), then step **5.1** (face adjacency and stacking 
 - `mvSolutions` blocks each model over the constrained variables and restarts, so it re-propagates from scratch each time. Fine for Phase 5 pulling a few candidates; use watched literals or incremental solving if it must enumerate thousands.
 - Every clause is rescanned each propagation round (no watched literals). Revisit if Phase 5 or large tessellations make solves slow.
 - The planned test "centre has 2 M / 4 V" became "|#M − #V| = 2": Maekawa allows 4 M / 2 V at the star centre too, and the solver may return either.
-- The full suite timed out two older tests (`orbit`, `star-twist`) once while the machine was under load (load average ~7); they pass in a quiet run, and `star-twist` also timed out once on CI in #21. If it recurs, give those property tests an explicit timeout or fewer runs.
+- The `orbit` and `star-twist` timeouts seen under load are fixed by the global `testTimeout` (4.3).
 
 ## Open questions
 - None.
