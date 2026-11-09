@@ -1,14 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { hexagonTwist } from "../gadgets/hexagon-twist";
-import { triangleTwist } from "../gadgets/triangle-twist";
+import { triangleTwist, triangleTwistCreases } from "../gadgets/triangle-twist";
 import { fromSegments, type CreasePattern } from "../pattern/crease-pattern";
 import { allAssignments, foldsFlat, layerOrderValid, POOL, subsets } from "../validate/testing";
 import { kawasakiFlat } from "../validate/local-flat-foldability";
 import { localMvClauses } from "./clauses";
 import { isAbove, layerOrder, orderFromRelation, stackFaces, type LayerOrder } from "./layer-order";
 import { layerOracle, oracleBrokenRules } from "./layer-oracle";
-import { mvSolutions, withMvAssignment } from "./solver";
-import { arrangement, foldedOrThrow, freed, lineSets, sectorFaces, spokePattern } from "./testing";
+import { mvSolutions, solveClauses, withMvAssignment } from "./solver";
+import {
+  arrangement,
+  foldedOrThrow,
+  freed,
+  lineSets,
+  rawTriangleTwist,
+  sectorFaces,
+  spokePattern,
+} from "./testing";
+import { stackingClauses } from "./stacking";
 
 type Ok = Extract<LayerOrder, { status: "ok" }>;
 
@@ -60,16 +69,62 @@ describe("layerOrder: acceptance, the hexagon twists fold and the relation is va
 
 describe("layerOrder on the triangle twists", () => {
   it.each([
-    ["triangle twist (1, 1)", triangleTwist(1, 1)],
-    ["triangle twist (2, 1)", triangleTwist(2, 1)],
-    ["triangle twist (1, 3)", triangleTwist(1, 3)],
-  ])("finds the shipped %s unfoldable", (_, cp) => {
-    expect(layerOrder(cp).status).toBe("unfoldable");
+    [3, 1],
+    [4, 1],
+    [6, 2],
+    [9, 3],
+  ] as const)(
+    "folds the (n=%i, m=%i) twist: satisfiable clauses, cyclic order, oracle agrees",
+    (n, m) => {
+      const cp = triangleTwist(n, m);
+      const folded = foldedOrThrow(cp);
+      const formula = stackingClauses(cp, folded);
+      expect(
+        solveClauses(
+          formula.variableCount,
+          formula.clauses.map((c) => c.literals),
+        ),
+      ).not.toBeNull();
+      const result = layerOrder(cp);
+      if (result.status !== "ok") throw new Error("expected ok");
+      expect(result.order).toBeNull();
+      expect(broken(cp, result)).toEqual([]);
+      const verdict = layerOracle(cp, folded, 60);
+      expect(verdict === "foldable" || verdict === "too-big").toBe(true);
+    },
+  );
+
+  it("has the oracle confirm at least one folding size", () => {
+    const cp = triangleTwist(3, 1);
+    expect(layerOracle(cp, foldedOrThrow(cp), 60)).toBe("foldable");
   });
 
   it.each([
-    ["triangle twist (1, 1)", triangleTwist(1, 1)],
-    ["triangle twist (2, 1)", triangleTwist(2, 1)],
+    [1, 1],
+    [2, 1],
+    [1, 3],
+    [5, 2],
+  ] as const)(
+    "finds the (n=%i, m=%i) twist below n >= 3m unfoldable, as the oracle does",
+    (n, m) => {
+      const cp = rawTriangleTwist(n, m);
+      expect(layerOrder(cp).status).toBe("unfoldable");
+      expect(layerOracle(cp, foldedOrThrow(cp), 60)).toBe("unfoldable");
+    },
+  );
+
+  it("folds exactly when n >= 3m, for n <= 12 and m <= 4", () => {
+    for (let m = 1; m <= 4; m++) {
+      for (let n = 1; n <= 12; n++) {
+        const status = layerOrder(fromSegments([], triangleTwistCreases(n, m))).status;
+        expect(status === "ok", `n=${n}, m=${m}`).toBe(n >= 3 * m);
+      }
+    }
+  });
+
+  it.each([
+    ["triangle twist (1, 1)", rawTriangleTwist(1, 1)],
+    ["triangle twist (2, 1)", rawTriangleTwist(2, 1)],
   ])("is ok exactly when the oracle says foldable, over every locally valid %s", (_, shipped) => {
     const base = freed(shipped);
     let ok = 0;

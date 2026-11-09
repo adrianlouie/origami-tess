@@ -63,7 +63,7 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - Sectors 2π/3, π/3, π/3, 2π/3 at each corner (Kawasaki for every n, m); 3 M + 1 V, and the lone V is on a crease bounding the two small sectors, so Big-Little-Big holds
   - Closed by a concentric triangular "B" frame of side n + 3m, with corners −m(2+ω), n + m(1−ω) and their rotation, listed as unit edges so every ray ends on a frame point
   - Negative control: swapping M/V on every ray keeps Kawasaki and Maekawa but fails Big-Little-Big at all three corners
-  - Found in 5.1b: the shipped assignment is locally valid but does **not** fold flat (see 5.2b)
+  - Found in 5.1b: locally valid but does **not** fold flat for n < 3m; 5.2b restricts the gadget to n ≥ 3m
 - [x] 3.6 Star twist gadget — test: Kawasaki, Maekawa and Big-Little-Big hold at every interior vertex
   - `core/gadgets/star-twist.ts`: `starTwistCreases(s)`, `starTwist(s)`; `rotate` and `hexagonFrame` moved to `core/gadgets/crease.ts`
   - No reference photos exist in the repo, so this is a spoked hexagram defined from first principles: a collapsed star, not a rotating twist
@@ -125,8 +125,17 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - Independent check: `oracleBrokenRules` in `core/solve/layer-oracle.ts` (test-only) evaluates the oracle's float-sampled physical rules on a given relation and names the broken ones. The oracle's bitmask is now a boolean array (the 32-bit mask would alias past 31 pairs; the hexagon twists have 30)
   - Test: hexagon twists pass the oracle; shipped triangle twists are `unfoldable`; over every locally valid triangle-twist (1,1) and (2,1) assignment `ok` matches the oracle and each order is a linear extension that passes it; lattice-line arrangements; every degree-4 single vertex agrees with `foldsFlat` and the order passes `layerOrderValid`; a flipped pair is caught; `stackFaces` on synthetic formulas (mutation-tested: removing the blocking clause fails a test)
   - Profile: clauses plus solve take 2 to 4 ms on the hexagon twists and 65 to 72 ms on `starTwist(1)` (435 pairs, 9,884 clauses), so no optimisation was needed
-- [ ] 5.2b Repair the triangle twist's M/V assignment — test: `stackingClauses` is satisfiable and `layerOracle` agrees. The shipped `triangleTwist` (1,1), (2,1) and (1,3) do not fold flat, but other locally valid assignments of the same creases do (12 of 26 for (1,1), 24 of 26 for (2,1)); use `layerOrder` to pick one, and say in the gadget's TSDoc why
+- [x] 5.2b Make the triangle twist fold flat — test: `stackingClauses` is satisfiable and `layerOracle` agrees
+  - **The M/V assignment was not the bug.** With threefold symmetry, Big-Little-Big leaves only the shipped assignment and its global flip. It folds exactly when n ≥ 3m (swept over n ≤ 12, m ≤ 4: n = 3m − 1 fails, 3m folds). Below that the pleats collide
+  - `triangleTwist(n, m)` now throws `RangeError` when n < 3m; `triangleTwistCreases` still lists the raw creases for any size, and `rawTriangleTwist` (`core/solve/testing.ts`) wraps them as the locally-valid-but-unfoldable fixture
+  - Where it folds the stacking is cyclic (`order: null`), like the hexagon twists
+  - Rejected alternative: the asymmetric assignment `VVM MMM VVV` (per corner: triangle edge, ray +, ray −) folds with a linear order at every size tested, but it is not threefold symmetric and so not a twist
+  - Tests: acceptance at (3,1), (4,1), (6,2), (9,3); the n ≥ 3m sweep; the oracle agrees below the bound; existing tests moved to foldable sizes or to the raw fixture. Mutation check: loosening the guard fails the rejection test
 - [ ] 5.2c Star twist redesign (deferred, needs a reference) — test: `stackingClauses` is satisfiable. `starTwist(1)` has a 5-face conflict (faces 0, 4, 5, 9, 12) and none of 150 sampled locally valid assignments folds, so the crease set itself likely has to change; it was built from first principles with no reference photos
+- [ ] 5.2d Near-foldability: conflict sets and a graded score — test: a pattern that fails to fold reports a minimal conflicting set, and removing it makes the clauses satisfiable
+  - Real tessellations are often foldable only in part, and `layerOrder` answers only `ok` or `unfoldable`. Find a minimal unsatisfiable core of the stacking clauses (and of the local M/V clauses), name the faces, creases and vertices in it, and give a score such as the fewest clauses that must be dropped (MaxSAT)
+  - Check against the known cases: the star twist's 5-face conflict (faces 0, 4, 5, 9, 12 of `starTwist(1)`) and the triangle twist below n = 3m
+  - Feeds 5.3 (draw the foldable part, mark the conflict), 6.2 (the bar-and-hinge simulation shows what distortion the dropped constraints cost) and 8.2 (repair loop: change what the conflict set names)
 - [ ] 5.3 Flat-folded layered render (needs a per-region order: the hexagon twists have no global linear one, see 5.2)
 
 ## Phase 6: 3D viewer
@@ -148,7 +157,7 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
 
 ## Known risks
 - Layer ordering is NP-hard in general; structured tessellations should be tractable. If the TypeScript solver is too slow, port that module to Rust→WASM.
-- Passing the local validators (Kawasaki, Maekawa, Big-Little-Big) does not mean a pattern folds flat: two of the three gadgets passed them and still fail. Run `stackingClauses` on every new gadget or generated pattern (8.2 especially).
+- Passing the local validators (Kawasaki, Maekawa, Big-Little-Big) does not mean a pattern folds flat: two of the three gadgets passed them and still failed (the triangle twist below n = 3m, the star twist always). Run `stackingClauses` on every new gadget or generated pattern (8.2 especially).
 - The whole-pattern test oracle (`core/solve/layer-oracle.ts`) covers convex faces and about 26 overlapping pairs; bigger or non-convex patterns are only checked on face subsets, so 5.2 needs its own independent order check.
 - Twist folds are not rigid-foldable, so the 3D animation is approximate; the flat-folded render is the accurate one.
 - Matching the style of the reference photos is realistic; matching them exactly is a stretch goal.

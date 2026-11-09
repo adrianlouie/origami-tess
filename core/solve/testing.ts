@@ -10,6 +10,7 @@
 import { add, eis, ZERO, type Eisenstein } from "../lattice/eisenstein";
 import { hexDistance } from "../lattice/grid";
 import { hexagonFrame, rotate, type Crease } from "../gadgets/crease";
+import { triangleTwistCreases } from "../gadgets/triangle-twist";
 import { fromSegments, type Assignment, type CreasePattern } from "../pattern/crease-pattern";
 import { foldFaces } from "./folded-faces";
 
@@ -128,4 +129,12 @@ export function freed(cp: CreasePattern): CreasePattern {
       e.assignment === "M" || e.assignment === "V" ? { ...e, assignment: "U" as const } : e,
     ),
   };
+}
+
+/**
+ * The triangle twist crease pattern for any n, m ≥ 1, including n < 3m where it is locally valid
+ * but does not fold flat (`triangleTwist` itself rejects those sizes).
+ */
+export function rawTriangleTwist(side: number, rayLength: number): CreasePattern {
+  return fromSegments([], triangleTwistCreases(side, rayLength));
 }

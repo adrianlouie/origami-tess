@@ -10,7 +10,7 @@ import { faceAdjacency } from "../pattern/faces";
 import { apply, compose, equals, IDENTITY, isIsometry, reflection } from "../symmetry/affine";
 import { kawasakiFlat } from "../validate/local-flat-foldability";
 import { creaseReflection, foldFaces } from "./folded-faces";
-import { SPOKE_ENDS, spokePattern, subsetsOf } from "./testing";
+import { rawTriangleTwist, SPOKE_ENDS, spokePattern, subsetsOf } from "./testing";
 
 describe("creaseReflection", () => {
   it("is the real-axis reflection for the x axis through the origin", () => {
@@ -94,8 +94,8 @@ describe("foldFaces", () => {
   it.each([
     ["hexagon twist", hexagonTwist(2, 4)],
     ["hexagon twist, small", hexagonTwist(1, 2)],
-    ["triangle twist", triangleTwist(2, 1)],
-    ["triangle twist, long rays", triangleTwist(1, 3)],
+    ["triangle twist", triangleTwist(6, 2)],
+    ["triangle twist, long rays, unfoldable", rawTriangleTwist(1, 3)],
     ["star twist", starTwist(1)],
   ])("folds the %s consistently, agreeing on every crease", (_, cp) => {
     const folded = foldFaces(cp);

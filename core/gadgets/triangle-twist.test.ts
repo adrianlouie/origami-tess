@@ -25,21 +25,24 @@ const key = (c: Crease) => {
   return `${x}|${y}|${c.assignment}`;
 };
 
+/** The raw pattern for any size: locally valid even where it cannot fold (n < 3m). */
+const raw = (n: number, m: number) => fromSegments([], triangleTwistCreases(n, m));
+
 const clean = { kawasaki: [], maekawa: [], unassigned: [], bigLittleBig: [] };
 
 describe("triangleTwist", () => {
-  it("passes Kawasaki, Maekawa and Big-Little-Big at the three corners (n=1, m=1)", () => {
-    const cp = triangleTwist(1, 1);
+  it("passes Kawasaki, Maekawa and Big-Little-Big at the three corners (n=3, m=1)", () => {
+    const cp = triangleTwist(3, 1);
     expect(checkLocalFlatFoldability(cp)).toEqual(clean);
     const interior = interiorVertices(cp).map((v) => cp.vertices[v]!);
     expect(interior).toHaveLength(3);
-    for (const p of corners(1)) expect(interior.some((z) => equals(z, p))).toBe(true);
+    for (const p of corners(3)) expect(interior.some((z) => equals(z, p))).toBe(true);
   });
 
   it("passes all three local conditions at exactly the three corners, for all sizes", () => {
     fc.assert(
       fc.property(sizes, ([n, m]) => {
-        const cp = triangleTwist(n, m);
+        const cp = raw(n, m);
         expect(checkLocalFlatFoldability(cp)).toEqual(clean);
         const interior = interiorVertices(cp).map((v) => cp.vertices[v]!);
         expect(interior).toHaveLength(3);
@@ -51,7 +54,7 @@ describe("triangleTwist", () => {
   it("has the counted V, E and 7 bounded faces, and satisfies Euler's formula", () => {
     fc.assert(
       fc.property(sizes, ([n, m]) => {
-        const cp = triangleTwist(n, m);
+        const cp = raw(n, m);
         const ring = 3 * (n + 3 * m);
         expect(cp.vertices).toHaveLength(3 + ring);
         expect(cp.edges).toHaveLength(9 + ring);
@@ -118,6 +121,19 @@ describe("triangleTwist", () => {
         expect(report.bigLittleBig).toHaveLength(3);
       }),
     );
+  });
+
+  it("rejects sizes below n >= 3m, which are locally valid but do not fold flat", () => {
+    for (const [n, m] of [
+      [1, 1],
+      [2, 1],
+      [5, 2],
+      [1, 3],
+    ] as const) {
+      expect(() => triangleTwist(n, m)).toThrow(RangeError);
+      expect(checkLocalFlatFoldability(raw(n, m))).toEqual(clean);
+    }
+    expect(() => triangleTwist(3, 1)).not.toThrow();
   });
 
   it("rejects bad sizes", () => {

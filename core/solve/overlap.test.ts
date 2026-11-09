@@ -10,7 +10,7 @@ import { faceDoubledArea, type CreasePattern } from "../pattern/crease-pattern";
 import { apply } from "../symmetry/affine";
 import { foldFaces } from "./folded-faces";
 import { overlappingFacePairs, trianglesOverlap, triangulateFace, type Triangle } from "./overlap";
-import { spokePattern, subsetsOf } from "./testing";
+import { rawTriangleTwist, spokePattern, subsetsOf } from "./testing";
 
 /** Twice the signed area of a triangle. */
 const area2 = (t: Triangle) => faceDoubledArea([...t], [0, 1, 2]);
@@ -112,7 +112,7 @@ describe("triangulateFace", () => {
   });
 
   it("triangulates every face of every gadget with the right total area", () => {
-    for (const cp of [hexagonTwist(2, 4), triangleTwist(2, 1), starTwist(1)]) {
+    for (const cp of [hexagonTwist(2, 4), triangleTwist(6, 2), starTwist(1)]) {
       for (const face of cp.faces) {
         const sum = triangulateFace(cp.vertices, face).reduce((acc, t) => acc + area2(t), 0);
         expect(sum).toBe(faceDoubledArea(cp.vertices, face));
@@ -171,8 +171,10 @@ describe("overlappingFacePairs", () => {
   const cases: [string, CreasePattern][] = [
     ["hexagon twist (1, 2)", hexagonTwist(1, 2)],
     ["hexagon twist (2, 3)", hexagonTwist(2, 3)],
-    ["triangle twist (1, 1)", triangleTwist(1, 1)],
-    ["triangle twist (2, 1)", triangleTwist(2, 1)],
+    ["triangle twist (3, 1)", triangleTwist(3, 1)],
+    ["triangle twist (4, 1)", triangleTwist(4, 1)],
+    ["triangle twist (1, 1), unfoldable", rawTriangleTwist(1, 1)],
+    ["triangle twist (2, 1), unfoldable", rawTriangleTwist(2, 1)],
     ["star twist (1)", starTwist(1)],
   ];
 

@@ -150,7 +150,7 @@ function relabelled(creases: Crease[], assignment: boolean[]): CreasePattern {
 
 const gadgets: { name: string; creases: Crease[]; cp: CreasePattern }[] = [
   { name: "hexagon twist", creases: hexagonTwistCreases(2, 5), cp: hexagonTwist(2, 5) },
-  { name: "triangle twist", creases: triangleTwistCreases(2, 1), cp: triangleTwist(2, 1) },
+  { name: "triangle twist", creases: triangleTwistCreases(3, 1), cp: triangleTwist(3, 1) },
   { name: "star twist", creases: starTwistCreases(2), cp: starTwist(2) },
 ];
 
