@@ -7,9 +7,11 @@
  * to the single-vertex conditions and can be checked against the validators.
  */
 
-import { eis, ZERO, type Eisenstein } from "../lattice/eisenstein";
-import { hexagonFrame, rotate } from "../gadgets/crease";
+import { add, eis, ZERO, type Eisenstein } from "../lattice/eisenstein";
+import { hexDistance } from "../lattice/grid";
+import { hexagonFrame, rotate, type Crease } from "../gadgets/crease";
 import { fromSegments, type Assignment, type CreasePattern } from "../pattern/crease-pattern";
+import { foldFaces } from "./folded-faces";
 
 /**
  * The twelve ring points at hexDistance 2, in counter-clockwise order from +x, 30° apart: the six
@@ -65,3 +67,65 @@ export function sectorFaces(cp: CreasePattern): number[] {
 
 /** Every subset of {0, …, n − 1} with `size` elements, each in increasing order. */
 export { subsets as subsetsOf } from "../validate/testing";
+
+/**
+ * Whole lattice lines in a radius-2 hexagon, as unit edges inside a "B" frame, all unassigned.
+ * Every crossing of lattice lines passes Kawasaki, so M/V is the only thing left to get right.
+ */
+export function arrangement(lines: readonly { dir: number; offset: number }[]): Crease[] {
+  const dirs = [eis(1, 0), eis(0, 1), eis(1, 1)];
+  const creases: Crease[] = hexagonFrame(2);
+  const seen = new Set<string>();
+  for (const { dir, offset } of lines) {
+    const d = dirs[dir]!;
+    const base = dir === 0 ? eis(0, offset) : eis(offset, 0);
+    const points: Eisenstein[] = [];
+    for (let t = -6; t <= 6; t++) {
+      const p = add(base, { a: d.a * t, b: d.b * t });
+      if (hexDistance(p) <= 2) points.push(p);
+    }
+    for (let i = 0; i + 1 < points.length; i++) {
+      const from = points[i]!;
+      const to = points[i + 1]!;
+      if (hexDistance(from) === 2 && hexDistance(to) === 2) continue;
+      const key = `${from.a},${from.b}-${to.a},${to.b}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      creases.push({ from, to, assignment: "U" });
+    }
+  }
+  return creases;
+}
+
+export const ALL_LINES = [0, 1, 2].flatMap((dir) => [-1, 0, 1].map((offset) => ({ dir, offset })));
+
+/** Every choice of `size` lines from the nine that cross the radius-2 hexagon. */
+export function lineSets(size: number): { dir: number; offset: number }[][] {
+  const out: { dir: number; offset: number }[][] = [];
+  const pick = (start: number, chosen: { dir: number; offset: number }[]) => {
+    if (chosen.length === size) {
+      out.push(chosen);
+      return;
+    }
+    for (let i = start; i < ALL_LINES.length; i++) pick(i + 1, [...chosen, ALL_LINES[i]!]);
+  };
+  pick(0, []);
+  return out;
+}
+
+/** The folded placement of a pattern, or an error if it does not fold consistently. */
+export function foldedOrThrow(cp: CreasePattern) {
+  const folded = foldFaces(cp);
+  if (folded.status !== "ok") throw new Error("pattern does not fold");
+  return folded;
+}
+
+/** The pattern with every M/V crease reset to "U", ready for the M/V solver. */
+export function freed(cp: CreasePattern): CreasePattern {
+  return {
+    ...cp,
+    edges: cp.edges.map((e) =>
+      e.assignment === "M" || e.assignment === "V" ? { ...e, assignment: "U" as const } : e,
+    ),
+  };
+}
