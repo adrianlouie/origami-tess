@@ -1,13 +1,23 @@
 ## Last session: 2026-11-08
-Did the Phase 4 audit (step 4.3, branch `audit/phase-4`). Tests 305 → 313; typecheck, lint and `format:check` pass. The 4.2 PR (#22) is merged.
+Merged the Phase 4 audit (PR #23), then did step **5.1a** (branch `step/5-1a-fold-maps-and-overlap`): fold maps, face adjacency and folded-face overlap. Tests 313 → 350; typecheck, lint and `format:check` pass. I split 5.1 in two as the plan proposed; `PLAN.md` now has 5.1a (done) and 5.1b.
 
 ## State
 - Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`.
-- `main` has everything through step 4.2. Branch `audit/phase-4` holds the audit.
+- `main` has everything through the Phase 4 audit. Branch `step/5-1a-fold-maps-and-overlap` holds 5.1a.
 - `.idea/` is excluded locally through `.git/info/exclude`, so the tree is otherwise clean.
 
 ## Next step
-Merge the audit PR (`/next-step`), then step **5.1** (face adjacency and stacking constraints). `CLAUDE.md` also says to ask whether you want a detailed plan before coding.
+Merge the 5.1a PR (`/next-step`), then step **5.1b**: stacking constraints as clauses. Design is in "Step 5.1a notes" below. `CLAUDE.md` also says to ask whether you want a detailed plan before coding.
+
+## Step 5.1a notes
+- `foldFaces(cp)` returns `{status: "ok", transforms, flipped}` or `{status: "inconsistent", edges}`. `transforms[f]` is an exact `Affine` from the pattern to the folded plane; `flipped[f]` is det = −1. Each connected piece starts from the identity.
+- Folded map across a crease: F_b = F_a ∘ ρ_e. For a single vertex, "ok" is exactly Kawasaki (product of reflections is the identity iff the alternating sector sum is 0); the exhaustive spoke test checks this, odd degrees included.
+- `creaseReflection` needs d²/N(d) to be an Eisenstein integer, i.e. d on a mirror axis (multiples of 30°). All gadgets qualify. A random motif with another crease direction (8.2) will throw; a rational-coordinate extension would be needed.
+- Faces with holes (nested components) and dangling creases throw. "B" creases are never crossed, even between two bounded faces.
+- `overlappingFacePairs` triangulates each face (ear clipping after dropping collinear vertices), moves the triangles by the face's map and tests pairs with a separating-axis check (touching does not count). It is O(T²) with a bounding-box reject; fine for gadgets, revisit for large tilings.
+- **Correction to my own test:** the first unit-triangle brute force used (a,b),(a+1,b),(a,b+1), which is a 120° triangle (0, 1, ω), not a lattice triangle. Unit triangles are (a,b),(a+1,b),(a+1,b+1) and (a,b),(a+1,b+1),(a,b+1). The solver output was right and the reference wrong; I only found out by looking at the folded triangles.
+- For 5.1b: variables are one per overlapping pair (i < j, "i above j"); the mountain/valley rule is: across an M crease the neighbour goes below the face whose front side shows (flipped faces invert it), V is the reverse. This convention is not yet tested; pin it with the `foldsFlat` oracle in `big-little-big.test.ts`, which should move to a shared test helper. Clauses go in the `{variableCount, clauses}` shape of `MvFormula` so 5.2 can reuse `solveFormula`.
+- `core/solve/testing.ts` holds the test-only spoke patterns (radius-2 frame, creases from the origin to the 12 ring points) and `subsetsOf`.
 
 ## Phase 4 audit findings (all fixed unless noted)
 - **Malformed formulas were silently accepted.** The solver indexes its value table by |literal| − 1, so literal 0 or one beyond `variableCount` read `undefined`: a negative one counted as satisfied. `checkFormula` now throws `RangeError` from `solveFormula` and `mvSolutions` (the latter on the first `next()`).

@@ -100,7 +100,13 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - New tests: DPLL and `mvSolutions` against brute force on random CNF; random line arrangements (all Kawasaki) checked against `checkLocalFlatFoldability` as an independent oracle, covering both sat and unsat; determinism; degree 0 and degree 2 clauses
 
 ## Phase 5: Layer ordering
-- [ ] 5.1 Face adjacency and stacking constraints (taco-taco, taco-tortilla, tortilla-tortilla)
+- [x] 5.1a Fold maps, face adjacency and overlap (5.1 split in two; this is the geometry half)
+  - `core/pattern/faces.ts`: `faceAdjacency(cp)` lists creases with a bounded face on each side (`left` of v0→v1, `right`); a crease with the same face on both sides (dangling) throws
+  - `core/solve/folded-faces.ts`: `creaseReflection(p, d)` and `foldFaces(cp)`. Reflection z ↦ p + (d/d̄)·conj(z − p) is an integer `Affine` only for directions on a lattice mirror axis (multiples of 30°); any other direction throws
+  - `foldFaces`: BFS over the adjacency graph, F_b = F_a ∘ ρ_e across M/V, F_b = F_a across F, "B" not crossed. A non-tree crease that disagrees returns `{status: "inconsistent", edges}`; "U" creases and faces with holes throw
+  - `core/solve/overlap.ts`: `triangulateFace` (ear clipping, collinear vertices dropped first), `trianglesOverlap` (exact separating-axis test), `overlappingFacePairs(cp, transforms)`
+  - Test: for spokes at multiples of 30° in a radius-2 frame, `foldFaces` is "ok" exactly when `kawasakiFlat` holds (all 2497 subsets of 2 to 6 spokes); gadgets fold consistently and agree on every crease; overlap matches an independent unit-triangle brute force, and `trianglesOverlap` matches a float clipping area
+- [ ] 5.1b Stacking constraints as clauses (taco-taco, taco-tortilla, tortilla-tortilla, transitivity) — test: clauses satisfiable exactly when the single-vertex `foldsFlat` oracle says the vertex folds
 - [ ] 5.2 Layer solver — test: known flat-foldable patterns yield a valid order
 - [ ] 5.3 Flat-folded layered render
 
