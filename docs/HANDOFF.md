@@ -1,15 +1,15 @@
 ## Last session: 2026-11-09
-Merged PR #29 (5.2d) with `/next-step`, planned 5.2c in plan mode and built it on `step/5-2c-star-twist-redesign`. The user's direction: partial foldability is a supported outcome (most complex origami and many tessellations collapse except for a little at the end), so the star twist now has two variants, `full` (folds flat) and `partial` (4 of 30 faces, score 50/54). Earlier this day: 5.2d, 5.2 (layer solver) and 5.2b (triangle twist folds only for n ≥ 3m).
+Merged PR #30 (5.2c) with `/next-step`, planned 5.2e in plan mode (the user chose edge depth) and built it on `step/5-2e-conflict-locality` (PR #31). Earlier this day: 5.2c, 5.2d, 5.2 (layer solver) and 5.2b.
 
 ## State
-- Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`. `main` has everything through 5.2d. Branch `step/5-2c-star-twist-redesign` holds 5.2c.
-- New in 5.2c: `starTwist(s, fold)` / `starTwistCreases(s, fold)` with `StarFold = "full" | "partial"` (default `full`) in `core/gadgets/star-twist.ts`. Existing tests that assumed the default star was unfoldable now pass `"partial"` (`near-foldability.test.ts`, `stacking-global.test.ts`). Tests 443 → 452; typecheck, lint and `format:check` pass.
-- 5.2d (merged): `core/solve/conflict.ts` (generic MUS and minimum repair over tagged CNF) and `core/solve/near-foldability.ts` (`nearFoldability`, `mvConflict`).
-- Earlier: `core/solve/layer-order.ts` and its test. Changed: `core/solve/layer-oracle.ts` (rule building split out, `oracleBrokenRules`, boolean mask), `core/solve/testing.ts` (now holds `arrangement`, `lineSets`, `foldedOrThrow`, `freed`, moved out of `stacking-global.test.ts`). Tests 389 → 409; typecheck, lint and `format:check` pass.
+- Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`. `main` has everything through 5.2c. Branch `step/5-2e-conflict-locality` holds 5.2e (PR #31).
+- New in 5.2e: `core/solve/locality.ts` (`boundaryDepth`, `conflictLocality`) and its test. `NearFoldability` is unchanged. Tests 452 → 481; typecheck, lint and `format:check` pass.
+- Star twist `partial`: repair faces {3, 4, 10, 20} are four separate pieces one hop inside the outline (area 4/54); the minimal conflict is one piece two hops deep (area 9/54).
+- 5.2c (merged): `starTwist(s, fold)` with `StarFold = "full" | "partial"`. 5.2d (merged): `core/solve/conflict.ts` and `core/solve/near-foldability.ts`.
 - `.idea/` is excluded locally through `.git/info/exclude`.
 
 ## Next step
-Merge the 5.2c PR (`/next-step`), then ask whether to plan the next step (`CLAUDE.md`). Candidates: **5.2e** (a measure of how localized a partial fold's conflict is; the definition is undecided) or **5.3** (layered render; it still needs a per-region order plan, and `starTwist(1, "partial")` is its fixture for drawing the conflict).
+Merge the 5.2e PR (`/next-step`), then ask whether to plan the next step (`CLAUDE.md`). Next is **5.3** (layered render). It still needs a per-region order plan, because the hexagon twists have no global linear order; `starTwist(1, "partial")` is its fixture, and `conflictLocality` can decide how a conflict is marked.
 
 ## Gotchas and decisions
 - `/next-step` squash-merges the open PR (CI green only; stops if red, pending or ambiguous). Each step's own PR ticks its plan box; write the handoff right after opening the PR and commit it to the same branch.
@@ -31,7 +31,7 @@ Merge the 5.2c PR (`/next-step`), then ask whether to plan the next step (`CLAUD
 - Environment: macOS `sed` needs `-i ''` and rejects GNU escapes (use python for mutations); there is no `timeout` command; `pkill` is denied by the permission classifier.
 
 - **Near-foldability (5.2d).** A tag is a face (stacking) or vertex (M/V); giving one up drops every clause that mentions it. `minimalConflict` returns *a* minimal conflict, not the smallest: the star twist has a 4-face one ({0, 4, 5, 12}) and the engine reports a 5-face one (20, 21, 23, 24, 27). `minimumRepair` is exact up to 12 tags, else `exact: false`.
+- **Locality (5.2e).** Depth uses the sheet topology (a crease with no bounded face on one side), not the "B" label. It is a profile, not one score: how to rank depth, pieces and area is left to 8.2. Whether an edge conflict is acceptable in practice is for the bar-and-hinge simulation (6.2) to say.
 
 ## Open questions
 - How should 5.3 draw a folding with no global order (per-cell ordering, or a transparent overlay)? Decide in its plan.
-- How should 5.2e define a localized conflict (conflict faces as a share of area, their distance from the centre, or whether they touch the border)?
