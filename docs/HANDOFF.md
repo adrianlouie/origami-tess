@@ -31,8 +31,7 @@ Merge the 5.2e PR (`/next-step`), then ask whether to plan the next step (`CLAUD
 - Environment: macOS `sed` needs `-i ''` and rejects GNU escapes (use python for mutations); there is no `timeout` command; `pkill` is denied by the permission classifier.
 
 - **Near-foldability (5.2d).** A tag is a face (stacking) or vertex (M/V); giving one up drops every clause that mentions it. `minimalConflict` returns *a* minimal conflict, not the smallest: the star twist has a 4-face one ({0, 4, 5, 12}) and the engine reports a 5-face one (20, 21, 23, 24, 27). `minimumRepair` is exact up to 12 tags, else `exact: false`.
+- **Locality (5.2e).** Depth uses the sheet topology (a crease with no bounded face on one side), not the "B" label. It is a profile, not one score: how to rank depth, pieces and area is left to 8.2. Whether an edge conflict is acceptable in practice is for the bar-and-hinge simulation (6.2) to say.
 
 ## Open questions
 - How should 5.3 draw a folding with no global order (per-cell ordering, or a transparent overlay)? Decide in its plan.
-- How should 5.2e define a localized conflict (conflict faces as a share of area, their distance from the centre, or whether they touch the border)?
-- **Locality (5.2e).** Depth uses the sheet topology (a crease with no bounded face on one side), not the "B" label. It is a profile, not one score: how to rank depth, pieces and area is left to 8.2. Whether an edge conflict is acceptable in practice is for the bar-and-hinge simulation (6.2) to say.
