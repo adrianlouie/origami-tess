@@ -1,14 +1,15 @@
 ## Last session: 2026-11-09
-Merged PR #28 (5.2b) with `/next-step`, planned 5.2d in plan mode, and built it on `step/5-2d-near-foldability`: conflict sets and a graded score. The star twist is a near miss, 4 of 30 faces (score 50/54). Earlier this day: 5.2 (layer solver) and 5.2b (triangle twist folds only for n ≥ 3m).
+Merged PR #29 (5.2d) with `/next-step`, planned 5.2c in plan mode and built it on `step/5-2c-star-twist-redesign`. The user's direction: partial foldability is a supported outcome (most complex origami and many tessellations collapse except for a little at the end), so the star twist now has two variants, `full` (folds flat) and `partial` (4 of 30 faces, score 50/54). Earlier this day: 5.2d, 5.2 (layer solver) and 5.2b (triangle twist folds only for n ≥ 3m).
 
 ## State
-- Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`. `main` has everything through 5.2b. Branch `step/5-2d-near-foldability` holds 5.2d (PR open).
-- New in 5.2d: `core/solve/conflict.ts` (generic MUS and minimum repair over tagged CNF) and `core/solve/near-foldability.ts` (`nearFoldability`, `mvConflict`). Tests 409 → 443.
+- Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`. `main` has everything through 5.2d. Branch `step/5-2c-star-twist-redesign` holds 5.2c.
+- New in 5.2c: `starTwist(s, fold)` / `starTwistCreases(s, fold)` with `StarFold = "full" | "partial"` (default `full`) in `core/gadgets/star-twist.ts`. Existing tests that assumed the default star was unfoldable now pass `"partial"` (`near-foldability.test.ts`, `stacking-global.test.ts`). Tests 443 → 452; typecheck, lint and `format:check` pass.
+- 5.2d (merged): `core/solve/conflict.ts` (generic MUS and minimum repair over tagged CNF) and `core/solve/near-foldability.ts` (`nearFoldability`, `mvConflict`).
 - Earlier: `core/solve/layer-order.ts` and its test. Changed: `core/solve/layer-oracle.ts` (rule building split out, `oracleBrokenRules`, boolean mask), `core/solve/testing.ts` (now holds `arrangement`, `lineSets`, `foldedOrThrow`, `freed`, moved out of `stacking-global.test.ts`). Tests 389 → 409; typecheck, lint and `format:check` pass.
 - `.idea/` is excluded locally through `.git/info/exclude`.
 
 ## Next step
-Merge the 5.2d PR (`/next-step`), then ask whether to plan the next step (`CLAUDE.md`). **5.2c** (star twist) is unblocked: read `nearFoldability(starTwist(1)).conflict.creases` and either change those creases or accept a partly collapsible fold; its test is reworded to "folds flat, or reports a documented minimal conflict and score". 5.3 (layered render) still needs a per-region order plan.
+Merge the 5.2c PR (`/next-step`), then ask whether to plan the next step (`CLAUDE.md`). Candidates: **5.2e** (a measure of how localized a partial fold's conflict is; the definition is undecided) or **5.3** (layered render; it still needs a per-region order plan, and `starTwist(1, "partial")` is its fixture for drawing the conflict).
 
 ## Gotchas and decisions
 - `/next-step` squash-merges the open PR (CI green only; stops if red, pending or ambiguous). Each step's own PR ticks its plan box; write the handoff right after opening the PR and commit it to the same branch.
@@ -23,7 +24,9 @@ Merge the 5.2d PR (`/next-step`), then ask whether to plan the next step (`CLAUD
 - **Hexagon twists have `order: null`.** Faces 1, 3, 4, 6, 8, 10 form a ring that every valid stacking orders cyclically (no three of them share a point, so transitivity does not apply). This is real, not a bug: blocking the ring makes the formula unsatisfiable, and the blocking clause is implied by any linear order. 5.3 therefore cannot paint faces with one sorted list; it needs an order per region (for example, per cell of the arrangement of folded creases, where the faces over it are totally ordered). Open question for the 5.3 plan.
 - The plan's 5.2 acceptance said "valid order" and the first plan said a non-null `order` for the hexagon twists; the test instead requires the relation to pass the oracle and asserts `order` is null with the ring above. Orders are non-null for single vertices and lattice-line arrangements; the symmetric triangle twist (n ≥ 3m) and the hexagon twists are cyclic (`order: null`).
 - Test oracles: `foldsFlat` (single vertex, 1D, `core/validate/testing.ts`) and `layerOracle` / `oracleBrokenRules` (whole pattern, float sampling, convex faces; independent of `stacking.ts`). The oracle's old 32-bit bitmask is now a boolean array.
-- Verdicts on the shipped gadgets: hexagon twists (1,2) and (2,3) fold; triangle twist folds exactly when n ≥ 3m (`triangleTwist` throws below that; use `rawTriangleTwist` in tests for the unfoldable cases); star twist (1) does not.
+- Verdicts on the shipped gadgets: hexagon twists (1,2) and (2,3) fold; triangle twist folds exactly when n ≥ 3m (`triangleTwist` throws below that; use `rawTriangleTwist` in tests for the unfoldable cases); the star twist folds in its `full` variant (the default) and folds in part, score 50/54, in `partial`.
+- **Star twist (5.2c).** The `full` M/V is the table `VVVMMMVV`/`MVMVMMVV`/`VMVMMMMV` per spoke k mod 3 (order a, b, e, g, h, x, y⁺, y⁻), found by search and not by a rule. It is half-turn symmetric, not threefold or 120°-symmetric. The crease set is chiral (`hₖ` is `Tₖ→Qₖ₊₁`, its mirror is not creased), so a mirror image is not a symmetry. 5.1b's "none of 150 folds" was a sampling miss: 2 of 500 sampled half-turn-symmetric assignments fold, at least 6 in all. The layer oracle cannot decide the star outright (435 pairs against its limit of 26), so for `full` it checks the found stacking with `oracleBrokenRules`.
+- Enumerating locally valid assignments with `mvSolutions` is slow beyond a few hundred: each solution adds a blocking clause and restarts DPLL, and a first attempt over all 48 free creases ran over an hour without finishing. Tie each edge to its half-turn image to halve the variables, cap the count, and log progress.
 - Tests take about 20 s CPU in all (limit 30 s per test). If CI times out, thin the degree-6 samples in `stacking.test.ts` first.
 - Environment: macOS `sed` needs `-i ''` and rejects GNU escapes (use python for mutations); there is no `timeout` command; `pkill` is denied by the permission classifier.
 
@@ -31,4 +34,4 @@ Merge the 5.2d PR (`/next-step`), then ask whether to plan the next step (`CLAUD
 
 ## Open questions
 - How should 5.3 draw a folding with no global order (per-cell ordering, or a transparent overlay)? Decide in its plan.
-- 5.2c (star twist redesign) stays deferred; 5.3 needs a per-region order plan first.
+- How should 5.2e define a localized conflict (conflict faces as a share of area, their distance from the centre, or whether they touch the border)?

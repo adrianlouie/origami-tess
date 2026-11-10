@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import { add, eis, equals, neg, ZERO, type Eisenstein } from "../lattice/eisenstein";
 import { componentCount, faceCount, fromSegments } from "../pattern/crease-pattern";
+import { isAbove, layerOrder } from "../solve/layer-order";
+import { oracleBrokenRules } from "../solve/layer-oracle";
+import { nearFoldability } from "../solve/near-foldability";
 import { checkLocalFlatFoldability, interiorVertices } from "../validate/local-flat-foldability";
 import { rotate, scale, type Crease } from "./crease";
 import { starTwist, starTwistCreases } from "./star-twist";
@@ -149,5 +152,95 @@ describe("starTwist", () => {
     expect(() => starTwist(1.5)).toThrow(RangeError);
     expect(() => starTwist(Number.NaN)).toThrow(RangeError);
     expect(() => starTwist(2 ** 53)).toThrow(RangeError);
+  });
+});
+
+describe("starTwist fold variants", () => {
+  const variants = ["full", "partial"] as const;
+
+  it("defaults to the full variant", () => {
+    expect(starTwistCreases(1)).toEqual(starTwistCreases(1, "full"));
+    expect(starTwist(1).edges.map((e) => e.assignment)).toEqual(
+      starTwist(1, "full").edges.map((e) => e.assignment),
+    );
+  });
+
+  it("folds flat with the full variant: nearFoldability is ok with score 1", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 1, max: 2 }), (s) => {
+        const result = nearFoldability(starTwist(s, "full"));
+        expect(result.status).toBe("ok");
+        if (result.status !== "ok") return;
+        expect(result.score.num).toBe(result.score.den);
+        expect(result.score.num).toBeGreaterThan(0);
+      }),
+    );
+  });
+
+  it("has a layer order for the full variant that breaks none of the oracle's physical rules", () => {
+    // The oracle samples the folded paper directly and shares no code with the stacking clauses.
+    // It cannot search all 435 pairs, so it checks the found stacking instead of deciding the star.
+    const cp = starTwist(1, "full");
+    const result = layerOrder(cp);
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.order).not.toBeNull();
+    expect(oracleBrokenRules(cp, result.folded, (p, q) => isAbove(result, p, q)!)).toEqual([]);
+  });
+
+  it("folds only in part with the partial variant: four of thirty faces, score 50/54", () => {
+    const result = nearFoldability(starTwist(1, "partial"));
+    expect(result.status).toBe("partial");
+    if (result.status !== "partial") return;
+    expect(result.score).toEqual({ num: 50, den: 54 });
+    expect(result.repair.faces).toHaveLength(4);
+    expect(result.repair.exact).toBe(true);
+  });
+
+  it("shares all geometry between the variants and differs only in the M/V assignment", () => {
+    fc.assert(
+      fc.property(sizes, (s) => {
+        const full = starTwistCreases(s, "full");
+        const partial = starTwistCreases(s, "partial");
+        expect(full).toHaveLength(partial.length);
+        full.forEach((c, i) => {
+          const d = partial[i]!;
+          expect(equals(c.from, d.from) && equals(c.to, d.to)).toBe(true);
+          if (c.assignment === "B") expect(d.assignment).toBe("B");
+        });
+        expect(full.map((c) => c.assignment)).not.toEqual(partial.map((c) => c.assignment));
+        const a = starTwist(s, "full");
+        const b = starTwist(s, "partial");
+        expect(a.vertices).toEqual(b.vertices);
+        expect(a.faces).toEqual(b.faces);
+      }),
+    );
+  });
+
+  it("passes all three local conditions at the 19 star vertices for both variants", () => {
+    fc.assert(
+      fc.property(sizes, fc.constantFrom(...variants), (s, fold) => {
+        expect(checkLocalFlatFoldability(starTwist(s, fold))).toEqual(clean);
+      }),
+    );
+  });
+
+  it("writes the full variant as the documented 3-row table, repeating every three spokes", () => {
+    // Per spoke k, in the order a, b, e, g, h, x, y⁺, y⁻ (the emission order of starTwistCreases).
+    const rows = ["VVVMMMVV", "MVMVMMVV", "VMVMMMMV"];
+    fc.assert(
+      fc.property(sizes, (s) => {
+        const assignments = starTwistCreases(s, "full")
+          .slice(0, 48)
+          .map((c) => c.assignment)
+          .join("");
+        expect(assignments).toBe(Array.from({ length: 6 }, (_, k) => rows[k % 3]).join(""));
+      }),
+    );
+  });
+
+  it("rejects an unknown fold variant", () => {
+    expect(() => starTwist(1, "none" as never)).toThrow(RangeError);
+    expect(() => starTwistCreases(1, "" as never)).toThrow(RangeError);
   });
 });

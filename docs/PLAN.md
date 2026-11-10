@@ -9,6 +9,7 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - Rust→WASM is a later option for the Phase 5 layer solver, only if it proves too slow.
 - [x] GitHub repo: private [origami-tess](https://github.com/adrianlouie/origami-tess), local at `~/origami-tess` (created 2026-11-07, initial commit only)
 - [x] PR descriptions carry no "Generated with Claude Code" footer (decided 2026-11-07)
+- [x] Partial foldability is a supported design outcome (decided 2026-11-09). Many good tessellations collapse except for a little at the end, so gadgets and generated patterns report a `nearFoldability` score and a localized conflict, not only pass or fail. A gadget may ship in a fully foldable and a partly foldable variant; the partly foldable one is a worked example, not a defect
 
 ## Phase 0: Repo setup
 - [x] 0.1 Scaffold repo (TypeScript, Vitest, fast-check), CLAUDE.md, docs/PLAN.md, docs/HANDOFF.md
@@ -138,8 +139,16 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - **Findings.** Star twist (1): the 5.1b core (0, 4, 5, 9, 12) is not minimal, because face 9 can go, leaving 0, 4, 5, 12; the engine's first conflict is another minimal one (faces 20, 21, 23, 24, 27, creases 28, 33, 34, 39). The cheapest repair is 4 of 30 faces, score 50/54, in about 170 ms. Triangle twist below n = 3m: six faces around the centre conflict and one face is enough to give up
   - Minimal is not minimum: the engine returns one minimal conflict, not the smallest
   - Tests: minimality and exactness against brute force over every face set on the triangle twists and lattice-line arrangements; the generic engine against brute force on random tagged CNF; the physical layer oracle agrees the conflict is unfoldable and the repaired faces stack; mutation-checked (skipping a tag, greedy hitting set, no weight tie-break)
-- [ ] 5.2c Star twist redesign (now unblocked by 5.2d) — test: `nearFoldability(starTwist(s))` is `ok`, or reports a documented minimal conflict and score. `starTwist(1)` is a near miss: 4 of 30 faces must be given up (score 50/54). Read the conflict's creases (28, 33, 34, 39) and change those, or accept a partly collapsible fold. It was built from first principles with no reference photos
-- [ ] 5.3 Flat-folded layered render (needs a per-region order: the hexagon twists have no global linear one, see 5.2)
+- [x] 5.2c Star twist as two variants: `full` folds flat, `partial` folds except for a small region — test: `nearFoldability(starTwist(1))` is `ok`, and `starTwist(1, "partial")` is `partial` with score 50/54
+  - `starTwist(s, fold)` and `starTwistCreases(s, fold)` take `fold: "full" | "partial"` (type `StarFold`, default `full`); both share every crease position, vertex and face and differ only in the M/V assignment. Anything else throws `RangeError`
+  - **Correction to 5.1b:** it sampled 150 assignments and found no fold, so it called the crease set likely in need of redesign. Searching the half-turn-symmetric locally valid assignments found 500 (capped; 5.4 s) of which 2 fold, and the crease set is unchanged. Turning a foldable star by 60° gives another, so at least 6 fold; the true count is not known
+  - Tally of the 500 by `nearFoldability` score: ok 2, 52/54 54, 51/54 12, 50/54 139 (the old assignment), 49/54 17, 48/54 208, 47/54 11, 46/54 56, 45/54 1
+  - `full` is the table `VVVMMMVV` / `MVMVMMVV` / `VMVMMMMV` per spoke k mod 3, in the order a, b, e, g, h, x, y⁺, y⁻. Found by search and not derived from a closed form. Half-turn symmetric (rows repeat every three spokes), not 120°-symmetric; two M and four V at the centre. It has a non-null layer order (unlike the hexagon and triangle twists), and `oracleBrokenRules` finds no broken physical rule in it. The oracle cannot decide the star outright (435 pairs against its limit of 26), so this checks the found stacking, not the whole question
+  - `partial` is the old assignment, kept on purpose as the repo's example of a pattern that folds in part: giving up 4 of 30 faces, score 50/54. 5.3 can use it to draw the foldable part and mark the conflict
+  - Not decided: a measure of how localized the conflict is (conflict faces as a share of area, or their distance from the centre). `nearFoldability` says the paper is partly foldable, not that it works in practice; the bar-and-hinge simulation (6.2) is the real test
+  - Tests: acceptance for both variants; shared geometry; both variants pass the local checks; the table; a bad `fold` throws; mutation check (one table entry flipped fails 8 tests)
+- [ ] 5.2e Localized-conflict measure for partial folds — how much of the conflict is small and at the edge of the pattern, versus in the middle (definition to be decided in its plan)
+- [ ] 5.3 Flat-folded layered render (needs a per-region order: the hexagon twists have no global linear one, see 5.2). Draws the foldable part and marks the conflict faces of a partial fold; `starTwist(1, "partial")` is its fixture
 
 ## Phase 6: 3D viewer
 - [ ] 6.1 Three.js scene with orbit/zoom/pan
@@ -151,7 +160,7 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
 
 ## Phase 8: Generative math
 - [ ] 8.1 Parameter sweeps (twist angle, n)
-- [ ] 8.2 Random motif + symmetry + solver repair
+- [ ] 8.2 Random motif + symmetry + solver repair (repair raises the `nearFoldability` score; a full fold is not required)
 - [ ] 8.3 Cellular-automaton growth on the lattice
 
 ## Optional side modules
@@ -160,7 +169,7 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
 
 ## Known risks
 - Layer ordering is NP-hard in general; structured tessellations should be tractable. If the TypeScript solver is too slow, port that module to Rust→WASM.
-- Passing the local validators (Kawasaki, Maekawa, Big-Little-Big) does not mean a pattern folds flat: two of the three gadgets passed them and still failed (the triangle twist below n = 3m, the star twist always). Run `stackingClauses` on every new gadget or generated pattern (8.2 especially).
+- Passing the local validators (Kawasaki, Maekawa, Big-Little-Big) does not mean a pattern folds flat: two of the three gadgets passed them and still failed (the triangle twist below n = 3m, and the star twist in its `partial` variant). Run `stackingClauses` on every new gadget or generated pattern (8.2 especially).
 - The whole-pattern test oracle (`core/solve/layer-oracle.ts`) covers convex faces and about 26 overlapping pairs; bigger or non-convex patterns are only checked on face subsets, so 5.2 needs its own independent order check.
 - Twist folds are not rigid-foldable, so the 3D animation is approximate; the flat-folded render is the accurate one.
 - Matching the style of the reference photos is realistic; matching them exactly is a stretch goal.
