@@ -1,15 +1,15 @@
 ## Last session: 2026-11-09
-Merged PR #30 (5.2c) with `/next-step`, planned 5.2e in plan mode (the user chose edge depth) and built it on `step/5-2e-conflict-locality` (PR #31). Earlier this day: 5.2c, 5.2d, 5.2 (layer solver) and 5.2b.
+Ran `/next-step`: merged PR #31 (5.2e), planned 5.3 in plan mode (the user chose pairwise masks and hatching the repair faces) and built it on `step/5-3-layered-render`. Earlier this day: 5.2e, 5.2c, 5.2d, 5.2 (layer solver) and 5.2b.
 
 ## State
-- Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`. `main` has everything through 5.2c. Branch `step/5-2e-conflict-locality` holds 5.2e (PR #31).
-- New in 5.2e: `core/solve/locality.ts` (`boundaryDepth`, `conflictLocality`) and its test. `NearFoldability` is unchanged. Tests 452 → 481; typecheck, lint and `format:check` pass.
-- Star twist `partial`: repair faces {3, 4, 10, 20} are four separate pieces one hop inside the outline (area 4/54); the minimal conflict is one piece two hops deep (area 9/54).
-- 5.2c (merged): `starTwist(s, fold)` with `StarFold = "full" | "partial"`. 5.2d (merged): `core/solve/conflict.ts` and `core/solve/near-foldability.ts`.
+- Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`. `main` has everything through 5.2e. Branch `step/5-3-layered-render` holds 5.3.
+- New in 5.3: `core/solve/layered-view.ts` (`layeredView`, `stackWithout`, `facesAbove`, `topFaceAt`) and `app/render/folded-svg.ts` (`foldedToSvg`), with tests. `svg.ts` now exports its helpers. Tests 481 → 509; typecheck, lint and `format:check` pass.
+- `topFaceAt` decides coverage against the whole folded outline, not the triangles: a point on an internal ear-clipping diagonal is in no triangle's interior. Its first version used triangles and failed on the hexagon twists; the test's brute-force helper used the same shortcut and hid it until the SVG comparison (a float point-in-polygon test) disagreed. A shared blind spot in a helper and its subject is worth a different route in the helper.
+- Rendered by eye (Quick Look on macOS rasterizes SVG: `qlmanage -t -s 700 -o <dir> x.svg`): the hexagon twist collapses to one hexagon because the central face is above all; the partial star shows the foldable part with the four hatched faces on top.
 - `.idea/` is excluded locally through `.git/info/exclude`.
 
 ## Next step
-Merge the 5.2e PR (`/next-step`), then ask whether to plan the next step (`CLAUDE.md`). Next is **5.3** (layered render). It still needs a per-region order plan, because the hexagon twists have no global linear order; `starTwist(1, "partial")` is its fixture, and `conflictLocality` can decide how a conflict is marked.
+Merge the 5.3 PR (`/next-step`), then ask whether to plan the next step (`CLAUDE.md`). Next is **5.4**, the Phase 5 audit (`audit/phase-5`), which `CLAUDE.md` requires before Phase 6 (3D viewer, 6.1). The audit should cover Phases 1 to 5.
 
 ## Gotchas and decisions
 - `/next-step` squash-merges the open PR (CI green only; stops if red, pending or ambiguous). Each step's own PR ticks its plan box; write the handoff right after opening the PR and commit it to the same branch.
@@ -34,4 +34,4 @@ Merge the 5.2e PR (`/next-step`), then ask whether to plan the next step (`CLAUD
 - **Locality (5.2e).** Depth uses the sheet topology (a crease with no bounded face on one side), not the "B" label. It is a profile, not one score: how to rank depth, pieces and area is left to 8.2. Whether an edge conflict is acceptable in practice is for the bar-and-hinge simulation (6.2) to say.
 
 ## Open questions
-- How should 5.3 draw a folding with no global order (per-cell ordering, or a transparent overlay)? Decide in its plan.
+- None open. (5.3 settled how to draw a folding with no global order: pairwise masks, see `docs/PLAN.md`.)
