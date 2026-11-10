@@ -6,6 +6,7 @@ import { faceDoubledArea, fromSegments, type CreasePattern } from "../pattern/cr
 import { localMvClauses } from "./clauses";
 import { layerOracle } from "./layer-oracle";
 import { mvConflict, nearFoldability, stackingCnf, type NearFoldability } from "./near-foldability";
+import { stackWithout } from "./layered-view";
 import { mvSolutions, solveClauses, solveMv, withMvAssignment } from "./solver";
 import { type StackingFormula } from "./stacking";
 import {
@@ -272,6 +273,58 @@ describe("mvConflict: a vertex-level explanation of local M/V failures", () => {
     for (const cp of [hexagonTwist(1, 2), triangleTwist(3, 1), starTwist(1)]) {
       const free = freed(cp);
       expect(mvConflict(free).status === "sat").toBe(solveMv(free).status === "sat");
+    }
+  });
+});
+
+describe("nearFoldability: invariants over unfoldable and foldable patterns", () => {
+  const patterns: [string, CreasePattern][] = [
+    ["raw triangle twist (1, 1)", rawTriangleTwist(1, 1)],
+    ["raw triangle twist (2, 1)", rawTriangleTwist(2, 1)],
+    ["raw triangle twist (1, 3)", rawTriangleTwist(1, 3)],
+    ["partial star twist", starTwist(1, "partial")],
+  ];
+  // Locally broken arrangements: one crease flipped, so some fail only globally or only locally.
+  lineSets(3).forEach((lines, i) => {
+    if (i % 9 !== 0) return;
+    const free = fromSegments([], arrangement(lines));
+    for (const solution of mvSolutions(localMvClauses(free))) {
+      const target = free.edges.findIndex((e) => e.assignment === "U");
+      patterns.push([
+        `arrangement ${JSON.stringify(lines)} with a crease flipped`,
+        withMvAssignment(
+          free,
+          [...solution].map((m, k) => (k === target ? !m : m)),
+        ),
+      ]);
+      break;
+    }
+  });
+
+  it.each(patterns)("%s: score, repair and conflict agree with each other", (_, cp) => {
+    const nf = nearFoldability(cp);
+    if (nf.status === "inconsistent") return;
+    const area = cp.faces.map((f) => faceDoubledArea(cp.vertices, f));
+    const total = area.reduce((a, b) => a + b, 0);
+    expect(nf.score.den).toBe(total);
+    if (nf.status === "ok") {
+      expect(nf.score.num).toBe(total);
+      return;
+    }
+    const given = nf.repair.faces.reduce((sum, f) => sum + area[f]!, 0);
+    expect(nf.score.num).toBe(total - given);
+    expect(nf.score.num).toBeLessThan(total);
+    // The kept clauses are satisfiable without the repair, and every known conflict is hit by it.
+    expect(stackWithout(nf.formula, nf.repair.faces)).not.toBeNull();
+    for (const conflict of nf.repair.conflicts) {
+      expect(conflict.some((f) => nf.repair.faces.includes(f))).toBe(true);
+    }
+    // The conflict is unsatisfiable on its own: giving up every other face leaves it contradictory,
+    // and giving up any one of its faces makes the rest consistent.
+    const others = cp.faces.map((_f, f) => f).filter((f) => !nf.conflict.faces.includes(f));
+    expect(stackWithout(nf.formula, others)).toBeNull();
+    for (const f of nf.conflict.faces) {
+      expect(stackWithout(nf.formula, [...others, f])).not.toBeNull();
     }
   });
 });

@@ -11,6 +11,7 @@ import { compareAngle } from "../lattice/direction";
 import { eis, rot60, type Eisenstein } from "../lattice/eisenstein";
 import { kawasakiFlat, maekawaFlat } from "./local-flat-foldability";
 
+/** A mountain or valley crease. */
 export type MV = "M" | "V";
 
 /** Twelve crease directions at multiples of 30°, counter-clockwise from +x. */

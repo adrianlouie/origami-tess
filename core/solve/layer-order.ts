@@ -113,9 +113,12 @@ export function stackFaces(
   const arcsOf = (model: readonly boolean[]) =>
     formula.pairs.map(([i, j], k) => (model[k] ? [i, j] : [j, i]) as [number, number]);
   let model: boolean[] = first;
+  // Round r checks the model found after r blocking clauses, so the last model (after
+  // MAX_CYCLE_ROUNDS clauses) is still checked but no further clause is added.
   for (let round = 0; round <= MAX_CYCLE_ROUNDS; round++) {
     const result = orderFromRelation(faceCount, arcsOf(model));
     if ("order" in result) return { above: model, order: result.order };
+    if (round === MAX_CYCLE_ROUNDS) break;
     // Forbid this exact cycle: at least one of its arcs must go the other way.
     const { cycle } = result;
     cnf.push(cycle.map((f, k) => -aboveLiteral(formula, f, cycle[(k + 1) % cycle.length]!)));

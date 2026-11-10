@@ -19,7 +19,7 @@ import { checkedMul, type Eisenstein } from "../lattice/eisenstein";
 import { onSegment, windingNumber } from "../lattice/direction";
 import { apply } from "../symmetry/affine";
 import type { CreasePattern } from "../pattern/crease-pattern";
-import { isAbove, layerOrderOf } from "./layer-order";
+import { isAbove, stackFaces } from "./layer-order";
 import { nearFoldability, stackingCnf, type NearFoldability } from "./near-foldability";
 import { foldedTriangles, type Triangle } from "./overlap";
 import { solveClauses } from "./solver";
@@ -67,7 +67,7 @@ export function stackWithout(formula: StackingFormula, drop: readonly number[]):
 /**
  * Builds the layered view of a crease pattern.
  *
- * For a foldable pattern the model comes from `layerOrderOf`, which steers away from cyclic models
+ * For a foldable pattern the model comes from `stackFaces`, which steers away from cyclic models
  * where a linear order exists. For a partly foldable one it is a model of the clauses without the
  * minimum repair faces; those faces are reported in `dropped` and the creases of one minimal
  * conflict in `conflictCreases`.
@@ -86,13 +86,14 @@ export function layeredView(
     face.map((v) => apply(nf.folded.transforms[f]!, cp.vertices[v]!)),
   );
   if (nf.status === "ok") {
-    const stacked = layerOrderOf(cp, nf.folded);
-    if (stacked.status !== "ok") throw new Error("Foldable pattern has no stacking model");
+    // Reuse the formula nearFoldability built, so `above` is indexed by the very pairs in `formula`.
+    const stacked = stackFaces(cp.faces.length, nf.formula);
+    if (stacked === null) throw new Error("Foldable pattern has no stacking model");
     return Object.freeze({
       status: "ok",
       folded: nf.folded,
       formula: nf.formula,
-      above: stacked.above,
+      above: Object.freeze(stacked.above),
       dropped: Object.freeze([]),
       conflictCreases: Object.freeze([]),
       outlines,
@@ -159,7 +160,8 @@ function strictlyInside(outline: readonly Eisenstein[], p: ScaledPoint): boolean
  * has a cycle elsewhere.
  *
  * @param view - from {@link layeredView}
- * @param p - a point not on any crease line; points on a boundary are covered by no face
+ * @param p - a point not on any crease line; a point on a face's outline is not inside that face
+ *   (it can still be inside another face)
  * @returns the face, or null when no kept face covers p
  * @throws RangeError if p is not an integer point over a positive integer denominator
  * @throws Error if the covering faces are not totally ordered (would be a solver bug)

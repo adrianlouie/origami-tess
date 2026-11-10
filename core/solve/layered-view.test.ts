@@ -1,12 +1,15 @@
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { onSegment, orientation } from "../lattice/direction";
 import { hexagonTwist } from "../gadgets/hexagon-twist";
 import { starTwist } from "../gadgets/star-twist";
 import { triangleTwist } from "../gadgets/triangle-twist";
-import type { CreasePattern } from "../pattern/crease-pattern";
-import { isAbove, layerOrder } from "./layer-order";
+import { hexagonFrame } from "../gadgets/crease";
+import { fromSegments, type CreasePattern } from "../pattern/crease-pattern";
+import { localMvClauses } from "./clauses";
+import { isAbove, layerOrder, orderFromRelation } from "./layer-order";
 import { nearFoldability, stackingCnf } from "./near-foldability";
-import { solveClauses } from "./solver";
+import { mvSolutions, solveClauses, withMvAssignment } from "./solver";
 import {
   facesAbove,
   layeredView,
@@ -15,7 +18,8 @@ import {
   type LayeredView,
   type ScaledPoint,
 } from "./layered-view";
-import { foldedOrThrow, spokePattern } from "./testing";
+import { eis, ZERO } from "../lattice/eisenstein";
+import { arrangement, foldedOrThrow, lineSets, rawTriangleTwist, spokePattern } from "./testing";
 
 function viewOf(cp: CreasePattern): LayeredView {
   const v = layeredView(cp);
@@ -195,5 +199,126 @@ describe("topFaceAt and facesAbove: edge cases", () => {
     const cnf = stackingCnf(nf.formula);
     expect(solveClauses(cnf.variableCount, cnf.clauses)).not.toBeNull();
     expect(foldedOrThrow(cp).transforms).toHaveLength(cp.faces.length);
+  });
+});
+
+/** Views of lattice-line arrangements (foldable or not), the gadgets and an unfoldable twist. */
+const POOL_VIEWS: LayeredView[] = (() => {
+  const views: LayeredView[] = [];
+  const keep = (cp: CreasePattern) => {
+    const v = layeredView(cp);
+    if (v.status !== "inconsistent") views.push(v);
+  };
+  [...lineSets(2), ...lineSets(3)].forEach((lines, i) => {
+    if (i % 5 !== 0) return;
+    const free = fromSegments([], arrangement(lines));
+    for (const solution of mvSolutions(localMvClauses(free))) {
+      keep(withMvAssignment(free, [...solution]));
+      break;
+    }
+  });
+  keep(hexagonTwist(1, 2));
+  keep(hexagonTwist(2, 3));
+  keep(triangleTwist(3, 1));
+  keep(starTwist(1, "full"));
+  keep(starTwist(1, "partial"));
+  keep(rawTriangleTwist(1, 1));
+  return views;
+})();
+
+describe("topFaceAt: properties over arrangements and gadgets", () => {
+  it("has some views of each status to test", () => {
+    expect(POOL_VIEWS.length).toBeGreaterThan(8);
+    expect(POOL_VIEWS.some((v) => v.status === "partial")).toBe(true);
+    expect(POOL_VIEWS.some((v) => v.status === "ok")).toBe(true);
+  });
+
+  it("never throws, and names the face that exact covering plus the relation say is on top", () => {
+    const point = fc
+      .integer({ min: 1, max: 12 })
+      .chain((d) =>
+        fc.tuple(
+          fc.constant(d),
+          fc.integer({ min: -3 * d, max: 3 * d }),
+          fc.integer({ min: -3 * d, max: 3 * d }),
+        ),
+      );
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: POOL_VIEWS.length - 1 }), point, (i, [d, a, b]) => {
+        const view = POOL_VIEWS[i]!;
+        const p = { a, b, d };
+        const top = topFaceAt(view, p);
+        expect(top).toBe(bruteTop(view, p));
+        if (top !== null) expect(view.dropped).not.toContain(top);
+      }),
+      { numRuns: 600 },
+    );
+  });
+
+  it("agrees with the global order wherever the view has one", () => {
+    const ordered = POOL_VIEWS.filter((v) => v.status === "ok").flatMap((v) => {
+      const order = orderOf(v);
+      return order === null ? [] : [{ v, order }];
+    });
+    expect(ordered.length).toBeGreaterThan(0);
+    for (const { v, order } of ordered) {
+      for (const p of samples(v)) {
+        const cover = covering(v, p);
+        expect(topFaceAt(v, p)).toBe(order.find((f) => cover.includes(f)) ?? null);
+      }
+    }
+  });
+});
+
+/** A linear order of the view's faces from its `above` bits, or null if they contain a cycle. */
+function orderOf(view: LayeredView): number[] | null {
+  const result = orderFromRelation(
+    view.triangles.length,
+    view.formula.pairs.map(([i, j], k) => (view.above[k]! ? [i, j] : [j, i]) as [number, number]),
+  );
+  return "order" in result ? result.order : null;
+}
+
+describe("layeredView: a pattern with a single face", () => {
+  const cp = fromSegments([], hexagonFrame(1));
+  const view = viewOf(cp);
+
+  it("has no overlapping pairs, nothing above the face, and the face on top of its own interior", () => {
+    expect(cp.faces).toHaveLength(1);
+    expect(view.status).toBe("ok");
+    expect(view.formula.variableCount).toBe(0);
+    expect(facesAbove(view, 0)).toEqual([]);
+    expect(topFaceAt(view, { a: 1, b: 1, d: 3 })).toBe(0);
+    expect(topFaceAt(view, { a: 100, b: 0, d: 1 })).toBeNull();
+  });
+});
+
+describe("layeredView near the exact-integer limit", () => {
+  /** Two equilateral triangles of side n sharing one M crease: a rhombus folded in half. */
+  const rhombus = (n: number) =>
+    fromSegments(
+      [],
+      [
+        { from: ZERO, to: eis(n, 0), assignment: "B" as const },
+        { from: eis(n, 0), to: eis(2 * n, n), assignment: "B" as const },
+        { from: eis(2 * n, n), to: eis(n, n), assignment: "B" as const },
+        { from: eis(n, n), to: ZERO, assignment: "B" as const },
+        { from: eis(n, 0), to: eis(n, n), assignment: "M" as const },
+      ],
+    );
+
+  it("folds a pattern whose products stay below 2^53, and its two faces overlap", () => {
+    const view = viewOf(rhombus(2 ** 25));
+    expect(view.status).toBe("ok");
+    expect(view.formula.pairs).toEqual([[0, 1]]);
+  });
+
+  it("throws RangeError rather than rounding when a point scale pushes a product past 2^53", () => {
+    const view = viewOf(rhombus(2 ** 25));
+    expect(() => topFaceAt(view, { a: 3 * 2 ** 25, b: 2 ** 25, d: 3 })).toThrow(RangeError);
+  });
+
+  it("refuses to build a pattern whose coordinates are too large for exact arithmetic", () => {
+    expect(() => rhombus(2 ** 26)).toThrow(RangeError);
   });
 });

@@ -50,4 +50,5 @@ export function randomElement(group: P6m, word: readonly number[]): Affine {
   return f;
 }
 
+/** Random words as indices 0 to 7: a generator, or (when i is past the count) its inverse. */
 export const wordArb = fc.array(fc.nat({ max: 7 }), { maxLength: 12 });
