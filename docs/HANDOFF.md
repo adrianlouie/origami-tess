@@ -1,18 +1,14 @@
 ## Last session: 2026-11-10
-Ran `/next-step`: merged PR #32 (5.3), planned the Phase 5 audit in plan mode and did it on `audit/phase-5` (5.4). Not yet committed or pushed when this was written.
+Ran `/next-step`: merged [PR #32](https://github.com/adrianlouie/origami-tess/pull/32) (5.3, layered render), planned and built the Phase 5 audit (5.4), and merged it as [PR #33](https://github.com/adrianlouie/origami-tess/pull/33). Phase 5 is complete.
 
 ## State
-- Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`. `main` has everything through 5.3. Branch `audit/phase-5` holds the 5.4 audit (tests 509 → 558; typecheck, lint, `format:check` pass).
-- **Audit findings (5.4)**, details in `docs/PLAN.md`: the `stackFaces` round-limit off-by-one; unvalidated `minimumRepair` weights; unchecked area and weight sums; the `foldedToSvg` conflict-crease lookup; `layeredView` building the formula twice. All fixed with a test that fails without the fix, except the overflow hardening in `nearFoldabilityOf` (no buildable pattern reaches 2⁵³ areas) and the `layeredView` change (behaviour-preserving).
-- Ruled out: `sameDirection` uses plain `x * y` but needs only the sign of a product of lattice-coordinate changes, which are bounded by the checked construction; snapshots show no seams.
-- Gadgets cannot reach 2⁵³: they list rays as unit edges, so memory runs out first (a large `triangleTwist` ran out of heap). Overflow is tested with a hand-built rhombus instead.
-- A pipeline test (`core/pipeline.test.ts`) now runs every gadget variant through validate, solve and render; add new gadgets to its table.
-- `fast-check` gotcha: `.filter` on a tuple that can never pass (n = 1 with `a !== b`) hangs the run synchronously, so `testTimeout` cannot fire.
-- Rendered by eye (`qlmanage -t -s 700 -o <dir> x.svg`): the folded hexagon twist is one hexagon; the partial star shows one hatched triangle because its four dropped faces fold onto the same place.
+- Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`. `main` has everything through 5.4; no open PRs, working tree clean. Tests 558; typecheck, lint and `format:check` pass.
+- Phases 0 to 5 are done: lattice, symmetry, gadgets and validators, the M/V solver, and the layer solver with near-foldability, locality and the flat-folded layered render. Nothing exists yet for Phase 6 (3D viewer) or later.
+- `core/pipeline.test.ts` runs every gadget variant through validate, solve and render; add new gadgets to its table.
 - `.idea/` is excluded locally through `.git/info/exclude`.
 
 ## Next step
-Merge the audit PR (`/next-step`), then ask whether to plan the next step (`CLAUDE.md`). Next is **6.1**, the Three.js scene with orbit, zoom and pan (Phase 6, 3D viewer).
+**6.1**, a Three.js scene with orbit, zoom and pan. First thing: ask the user whether they want a detailed plan (`CLAUDE.md`), then write the acceptance test. `app/` is still SVG only, so this adds the first Three.js dependency; decide how to test a WebGL scene without a browser (for example, test the scene graph and camera setup, not pixels).
 
 ## Gotchas and decisions
 - `/next-step` squash-merges the open PR (CI green only; stops if red, pending or ambiguous). Each step's own PR ticks its plan box; write the handoff right after opening the PR and commit it to the same branch.
@@ -35,6 +31,7 @@ Merge the audit PR (`/next-step`), then ask whether to plan the next step (`CLAU
 
 - **Near-foldability (5.2d).** A tag is a face (stacking) or vertex (M/V); giving one up drops every clause that mentions it. `minimalConflict` returns *a* minimal conflict, not the smallest: the star twist has a 4-face one ({0, 4, 5, 12}) and the engine reports a 5-face one (20, 21, 23, 24, 27). `minimumRepair` is exact up to 12 tags, else `exact: false`.
 - **Locality (5.2e).** Depth uses the sheet topology (a crease with no bounded face on one side), not the "B" label. It is a profile, not one score: how to rank depth, pieces and area is left to 8.2. Whether an edge conflict is acceptable in practice is for the bar-and-hinge simulation (6.2) to say.
+- **Phase 5 audit (5.4) lessons.** `stackFaces` blocks at most `MAX_CYCLE_ROUNDS` cycles and still checks the last model. `minimumRepair` weights must be positive safe integers. `fast-check` `.filter` on a tuple that can never pass (n = 1 with `a !== b`) hangs the run synchronously, so `testTimeout` cannot fire. Gadgets run out of memory (unit-edge rays) long before 2⁵³, so overflow is tested with a hand-built rhombus. Snapshots: `qlmanage -t -s 700 -o <dir> x.svg` rasterizes an SVG on macOS; the partial star renders as one hatched triangle because its four dropped faces fold onto the same place.
 
 ## Open questions
-- None open. (5.3 settled how to draw a folding with no global order: pairwise masks, see `docs/PLAN.md`.)
+- None open.
