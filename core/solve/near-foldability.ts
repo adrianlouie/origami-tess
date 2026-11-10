@@ -15,6 +15,7 @@
  * far the pattern is from folding, not a claim that the remaining paper folds without it.
  */
 
+import { checkedAdd } from "../lattice/eisenstein";
 import { faceDoubledArea, type CreasePattern } from "../pattern/crease-pattern";
 import type { Clause, MvFormula } from "./clauses";
 import { localMvClauses } from "./clauses";
@@ -116,7 +117,7 @@ export function nearFoldabilityOf(cp: CreasePattern, folded: Folded): NearFoldab
   const formula = stackingClauses(cp, folded);
   const cnf = stackingCnf(formula);
   const area = cp.faces.map((face) => faceDoubledArea(cp.vertices, face));
-  const total = area.reduce((a, b) => a + b, 0);
+  const total = area.reduce((a, b) => checkedAdd(a, b), 0);
   const conflict = minimalConflict(cnf);
   if (conflict === null) {
     return Object.freeze({
@@ -131,7 +132,7 @@ export function nearFoldabilityOf(cp: CreasePattern, folded: Folded): NearFoldab
   if (repair === null) throw new Error("Stacking clauses unsatisfiable without any face");
   const clauses = conflict.clauses.map((c) => formula.clauses[c]!);
   const creases = [...new Set(clauses.flatMap((c) => creasesOf(c)))].sort((a, b) => a - b);
-  const given = repair.removed.reduce((sum, f) => sum + area[f]!, 0);
+  const given = repair.removed.reduce((sum, f) => checkedAdd(sum, area[f]!), 0);
   return Object.freeze({
     status: "partial",
     folded,

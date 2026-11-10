@@ -19,6 +19,7 @@
  *   instances", CP 2011.
  */
 
+import { checkedAdd } from "../lattice/eisenstein";
 import type { Literal } from "./clauses";
 import { solveClauses } from "./solver";
 
@@ -117,7 +118,7 @@ export function minimalConflict(
 
 /** Total weight of a tag set. */
 function weightOf(tags: readonly number[], weight: (tag: number) => number): number {
-  return tags.reduce((sum, t) => sum + weight(t), 0);
+  return tags.reduce((sum, t) => checkedAdd(sum, weight(t)), 0);
 }
 
 /** Lexicographic comparison of two sorted tag lists. */
@@ -197,12 +198,20 @@ function minimumHittingSet(
  * @param weight - cost of giving up a tag, a positive integer (default 1)
  * @returns the repair (empty if the formula is satisfiable), or null if the hard clauses alone are
  *   unsatisfiable, so that no removal of tags helps
- * @throws RangeError if the formula is malformed (see `solveClauses`)
+ * @throws RangeError if the formula is malformed (see `solveClauses`), or if `weight` is not a
+ *   positive safe integer for some tag of the formula (a zero or negative weight would make giving
+ *   up more tags look cheaper, and a fraction or sum past 2⁵³ would compare inexactly)
  */
 export function minimumRepair(
   cnf: TaggedCnf,
   weight: (tag: number) => number = () => 1,
 ): Repair | null {
+  for (const tag of new Set(cnf.tags.flat())) {
+    const w = weight(tag);
+    if (!Number.isSafeInteger(w) || w <= 0) {
+      throw new RangeError(`Weight of tag ${tag} must be a positive safe integer, got ${w}`);
+    }
+  }
   const conflicts: number[][] = [];
   let removed: number[] = [];
   for (;;) {

@@ -44,6 +44,7 @@ export type TilingSvgOptions = SvgOptions & {
   readonly pointRadius?: number;
 };
 
+/** A point in pixel space (y grows downward), after the exact-to-float step of `toPixels`. */
 export type Px = { readonly x: number; readonly y: number };
 
 /** Maps an exact lattice point to pixels; y is negated because SVG's y-axis points down. */

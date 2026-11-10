@@ -98,6 +98,7 @@ export function arrangement(lines: readonly { dir: number; offset: number }[]): 
   return creases;
 }
 
+/** The nine lattice lines (three directions, offsets −1, 0, 1) that cross the radius-2 hexagon. */
 export const ALL_LINES = [0, 1, 2].flatMap((dir) => [-1, 0, 1].map((offset) => ({ dir, offset })));
 
 /** Every choice of `size` lines from the nine that cross the radius-2 hexagon. */

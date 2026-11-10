@@ -1,15 +1,18 @@
-## Last session: 2026-11-09
-Ran `/next-step`: merged PR #31 (5.2e), planned 5.3 in plan mode (the user chose pairwise masks and hatching the repair faces) and built it on `step/5-3-layered-render`. Earlier this day: 5.2e, 5.2c, 5.2d, 5.2 (layer solver) and 5.2b.
+## Last session: 2026-11-10
+Ran `/next-step`: merged PR #32 (5.3), planned the Phase 5 audit in plan mode and did it on `audit/phase-5` (5.4). Not yet committed or pushed when this was written.
 
 ## State
-- Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`. `main` has everything through 5.2e. Branch `step/5-3-layered-render` holds 5.3.
-- New in 5.3: `core/solve/layered-view.ts` (`layeredView`, `stackWithout`, `facesAbove`, `topFaceAt`) and `app/render/folded-svg.ts` (`foldedToSvg`), with tests. `svg.ts` now exports its helpers. Tests 481 → 509; typecheck, lint and `format:check` pass.
-- `topFaceAt` decides coverage against the whole folded outline, not the triangles: a point on an internal ear-clipping diagonal is in no triangle's interior. Its first version used triangles and failed on the hexagon twists; the test's brute-force helper used the same shortcut and hid it until the SVG comparison (a float point-in-polygon test) disagreed. A shared blind spot in a helper and its subject is worth a different route in the helper.
-- Rendered by eye (Quick Look on macOS rasterizes SVG: `qlmanage -t -s 700 -o <dir> x.svg`): the hexagon twist collapses to one hexagon because the central face is above all; the partial star shows the foldable part with the four hatched faces on top.
+- Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`. `main` has everything through 5.3. Branch `audit/phase-5` holds the 5.4 audit (tests 509 → 558; typecheck, lint, `format:check` pass).
+- **Audit findings (5.4)**, details in `docs/PLAN.md`: the `stackFaces` round-limit off-by-one; unvalidated `minimumRepair` weights; unchecked area and weight sums; the `foldedToSvg` conflict-crease lookup; `layeredView` building the formula twice. All fixed with a test that fails without the fix, except the overflow hardening in `nearFoldabilityOf` (no buildable pattern reaches 2⁵³ areas) and the `layeredView` change (behaviour-preserving).
+- Ruled out: `sameDirection` uses plain `x * y` but needs only the sign of a product of lattice-coordinate changes, which are bounded by the checked construction; snapshots show no seams.
+- Gadgets cannot reach 2⁵³: they list rays as unit edges, so memory runs out first (a large `triangleTwist` ran out of heap). Overflow is tested with a hand-built rhombus instead.
+- A pipeline test (`core/pipeline.test.ts`) now runs every gadget variant through validate, solve and render; add new gadgets to its table.
+- `fast-check` gotcha: `.filter` on a tuple that can never pass (n = 1 with `a !== b`) hangs the run synchronously, so `testTimeout` cannot fire.
+- Rendered by eye (`qlmanage -t -s 700 -o <dir> x.svg`): the folded hexagon twist is one hexagon; the partial star shows one hatched triangle because its four dropped faces fold onto the same place.
 - `.idea/` is excluded locally through `.git/info/exclude`.
 
 ## Next step
-Merge the 5.3 PR (`/next-step`), then ask whether to plan the next step (`CLAUDE.md`). Next is **5.4**, the Phase 5 audit (`audit/phase-5`), which `CLAUDE.md` requires before Phase 6 (3D viewer, 6.1). The audit should cover Phases 1 to 5.
+Merge the audit PR (`/next-step`), then ask whether to plan the next step (`CLAUDE.md`). Next is **6.1**, the Three.js scene with orbit, zoom and pan (Phase 6, 3D viewer).
 
 ## Gotchas and decisions
 - `/next-step` squash-merges the open PR (CI green only; stops if red, pending or ambiguous). Each step's own PR ticks its plan box; write the handoff right after opening the PR and commit it to the same branch.

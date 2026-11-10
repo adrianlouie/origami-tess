@@ -1,3 +1,4 @@
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { hexagonTwist } from "../gadgets/hexagon-twist";
 import { triangleTwist, triangleTwistCreases } from "../gadgets/triangle-twist";
@@ -319,5 +320,105 @@ describe("layerOrder basics", () => {
 
   it("throws on an unassigned crease", () => {
     expect(() => layerOrder(freed(hexagonTwist(1, 2)))).toThrow(RangeError);
+  });
+});
+
+/** Does the arc set contain a directed cycle? Plain DFS with colours, independent of Kahn's sort. */
+function hasCycle(n: number, arcs: readonly (readonly [number, number])[]): boolean {
+  const colour = new Array<number>(n).fill(0); // 0 new, 1 on the stack, 2 done
+  const visit = (u: number): boolean => {
+    colour[u] = 1;
+    for (const [hi, lo] of arcs) {
+      if (hi !== u) continue;
+      if (colour[lo] === 1 || (colour[lo] === 0 && visit(lo))) return true;
+    }
+    colour[u] = 2;
+    return false;
+  };
+  return colour.some((c, u) => c === 0 && visit(u));
+}
+
+describe("orderFromRelation: properties", () => {
+  const relation = fc.integer({ min: 2, max: 7 }).chain((n) =>
+    fc.record({
+      n: fc.constant(n),
+      arcs: fc.array(
+        fc
+          .tuple(fc.integer({ min: 0, max: n - 1 }), fc.integer({ min: 0, max: n - 1 }))
+          .filter(([a, b]) => a !== b),
+        { maxLength: 14 },
+      ) as fc.Arbitrary<[number, number][]>,
+    }),
+  );
+
+  it("returns a linear extension exactly when there is no cycle, else a real cycle of arcs", () => {
+    fc.assert(
+      fc.property(relation, ({ n, arcs }) => {
+        const result = orderFromRelation(n, arcs);
+        const has = (a: number, b: number) => arcs.some(([x, y]) => x === a && y === b);
+        expect("order" in result).toBe(!hasCycle(n, arcs));
+        if ("order" in result) {
+          expect([...result.order].sort((x, y) => x - y)).toEqual([...Array(n).keys()]);
+          const at = new Map(result.order.map((f, i) => [f, i]));
+          for (const [hi, lo] of arcs) expect(at.get(hi)!).toBeLessThan(at.get(lo)!);
+        } else {
+          const c = result.cycle;
+          expect(c.length).toBeGreaterThanOrEqual(2);
+          expect(new Set(c).size).toBe(c.length);
+          c.forEach((f, k) => expect(has(f, c[(k + 1) % c.length]!)).toBe(true));
+        }
+      }),
+      { numRuns: 300 },
+    );
+  });
+});
+
+describe("stackFaces: against a brute-force search over every model", () => {
+  const PAIRS: [number, number][] = [];
+  for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) PAIRS.push([i, j]);
+  const clauses = fc.array(
+    fc.array(
+      fc.tuple(fc.integer({ min: 1, max: 6 }), fc.boolean()).map(([v, neg]) => (neg ? -v : v)),
+      { minLength: 1, maxLength: 3 },
+    ),
+    { maxLength: 8 },
+  );
+
+  it("reports null, an acyclic model, or a cyclic one exactly as enumeration says", () => {
+    fc.assert(
+      fc.property(clauses, (cnf) => {
+        const formula = {
+          variableCount: 6,
+          pairs: PAIRS,
+          clauses: cnf.map((literals) => ({ kind: "crease" as const, edge: 0, literals })),
+        };
+        const models: boolean[][] = [];
+        for (let bits = 0; bits < 64; bits++) {
+          const m = PAIRS.map((_, k) => ((bits >> k) & 1) === 1);
+          if (cnf.every((c) => c.some((l) => m[Math.abs(l) - 1]! === l > 0))) models.push(m);
+        }
+        const acyclic = (m: boolean[]) =>
+          !hasCycle(
+            4,
+            PAIRS.map(([i, j], k) => (m[k] ? [i, j] : [j, i]) as [number, number]),
+          );
+        const result = stackFaces(4, formula);
+        if (models.length === 0) {
+          expect(result).toBeNull();
+          return;
+        }
+        expect(result).not.toBeNull();
+        expect(models).toContainEqual(result!.above);
+        expect(result!.order !== null).toBe(models.some(acyclic));
+        if (result!.order !== null) {
+          const at = new Map(result!.order.map((f, i) => [f, i]));
+          PAIRS.forEach(([i, j], k) => {
+            const [hi, lo] = result!.above[k]! ? [i, j] : [j, i];
+            expect(at.get(hi)!).toBeLessThan(at.get(lo)!);
+          });
+        }
+      }),
+      { numRuns: 300 },
+    );
   });
 });

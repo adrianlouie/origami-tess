@@ -209,6 +209,12 @@ describe("foldedToSvg: colours, validation and format", () => {
     expect(() => foldedToSvg(triangleTwist(3, 1), view)).toThrow(RangeError);
   });
 
+  it("rejects a conflict crease that does not lie between two faces, with a clear error", () => {
+    const border = cp.edges.findIndex((e) => e.assignment === "B");
+    expect(border).toBeGreaterThanOrEqual(0);
+    expect(() => foldedToSvg(cp, { ...view, conflictCreases: [border] })).toThrow(RangeError);
+  });
+
   it("matches the snapshot for the hexagon twist", () => {
     expect(foldedToSvg(cp, view)).toMatchSnapshot();
   });

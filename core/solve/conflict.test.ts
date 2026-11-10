@@ -136,3 +136,28 @@ describe("minimumRepair", () => {
     expect(minimumRepair(cnf)?.removed).toEqual([0]);
   });
 });
+
+describe("minimumRepair: weights", () => {
+  // x and ¬x, each blamed on its own tag: giving up either tag repairs it.
+  const cnf: TaggedCnf = { variableCount: 1, clauses: [[1], [-1]], tags: [[0], [1]] };
+
+  it.each([0, -1, 0.5, Number.NaN, Number.POSITIVE_INFINITY])(
+    "rejects the weight %s, which would break the least-weight tie-break",
+    (bad) => {
+      expect(() => minimumRepair(cnf, () => bad)).toThrow(RangeError);
+    },
+  );
+
+  it("accepts positive integer weights and prefers the lighter tag", () => {
+    expect(minimumRepair(cnf, (t) => (t === 0 ? 5 : 2))!.removed).toEqual([1]);
+  });
+});
+
+describe("conflict engine: formulas with no clauses", () => {
+  const empty: TaggedCnf = { variableCount: 0, clauses: [], tags: [] };
+
+  it("has no conflict and needs no repair", () => {
+    expect(minimalConflict(empty)).toBeNull();
+    expect(minimumRepair(empty)).toEqual({ removed: [], conflicts: [], exact: true });
+  });
+});

@@ -12,6 +12,7 @@
 
 import { apply } from "../../core/symmetry/affine";
 import type { CreasePattern } from "../../core/pattern/crease-pattern";
+import { faceAdjacency } from "../../core/pattern/faces";
 import { facesAbove, type LayeredView } from "../../core/solve/layered-view";
 import { checkOptions, fmt, svgDocument, toPixels, type Px, type SvgOptions } from "./svg";
 
@@ -103,15 +104,13 @@ export function foldedToSvg(
       `  <polygon data-dropped="${f}" points="${points(shapes[f]!)}" fill="url(#hatch)" stroke="${conflictColor}"/>`,
   );
 
+  const leftOf = new Map(faceAdjacency(cp).map(({ edge, left }) => [edge, left]));
   const conflict = view.conflictCreases.map((e) => {
+    // The creases of a fold agree on both sides, so the face left of the edge places it.
+    const f = leftOf.get(e);
+    if (f === undefined)
+      throw new RangeError(`Conflict crease ${e} does not lie between two faces`);
     const { v0, v1 } = cp.edges[e]!;
-    // The creases of a fold agree on both sides, so any face that borders the edge places it.
-    const f = cp.faces.findIndex((walk) =>
-      walk.some((v, i) => {
-        const w = walk[(i + 1) % walk.length]!;
-        return (v === v0 && w === v1) || (v === v1 && w === v0);
-      }),
-    );
     const t = view.folded.transforms[f]!;
     const p = toPixels(apply(t, cp.vertices[v0]!), scale);
     const q = toPixels(apply(t, cp.vertices[v1]!), scale);
