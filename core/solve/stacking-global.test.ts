@@ -115,12 +115,12 @@ describe("stackingClauses on the gadgets, against the layer oracle", () => {
     expect(formulaFoldable(cp)).toBe(false);
   });
 
-  it("finds the shipped star twist (s = 1) unfoldable, from five faces", () => {
+  it("finds the partial star twist (s = 1) unfoldable, from five faces", () => {
     // The oracle, which samples the folded paper directly, reaches the same verdict from the same
     // five faces. The chain: face 0 lies above face 4 (crease 3), so above 9 (face 0 crosses
     // crease 9), so above 12 (crease 14), so above 5 (face 0 crosses crease 15); then face 5
     // crosses crease 3, so it must also be below face 4, but crease 4 puts it above.
-    const cp = starTwist(1);
+    const cp = starTwist(1, "partial");
     expect(formulaFoldable(cp)).toBe(false);
     const folded = foldedOrThrow(cp);
     const core = [0, 4, 5, 9, 12];
@@ -150,7 +150,8 @@ describe("stackingClauses and the layer oracle agree on every sampled set of fac
   // satisfiable as the oracle's constraints inside the same set. This reaches patterns whose full
   // search is out of the oracle's range (the star twist has 435 overlapping pairs).
   it.each([
-    ["star twist (1)", starTwist(1)],
+    ["full star twist (1)", starTwist(1, "full")],
+    ["partial star twist (1)", starTwist(1, "partial")],
     ["triangle twist (1, 1)", rawTriangleTwist(1, 1)],
     ["triangle twist (2, 1)", rawTriangleTwist(2, 1)],
     ["hexagon twist (2, 3)", hexagonTwist(2, 3)],

@@ -75,7 +75,7 @@ describe("nearFoldability: acceptance, a pattern that does not fold names a mini
     ["triangle twist (1, 1)", rawTriangleTwist(1, 1)],
     ["triangle twist (2, 1)", rawTriangleTwist(2, 1)],
     ["triangle twist (5, 2)", rawTriangleTwist(5, 2)],
-    ["star twist (1)", starTwist(1)],
+    ["partial star twist (1)", starTwist(1, "partial")],
   ])(
     "reports a minimal conflict of the %s, and removing its repair satisfies the clauses",
     (_, cp) => {
@@ -122,11 +122,11 @@ describe("nearFoldability: acceptance, a pattern that does not fold names a mini
     },
   );
 
-  it("finds the star twist (1) is a near miss: four faces of thirty give it up", () => {
+  it("finds the partial star twist (1) is a near miss: four faces of thirty give it up", () => {
     // The five faces of 5.1b (0, 4, 5, 9, 12) are not a minimal conflict: face 9 can be dropped,
     // leaving the four faces 0, 4, 5, 12. A minimal conflict is not a minimum one, so the engine's
     // first conflict (a different, five-face one) is only required to be minimal, checked above.
-    const result = partial(starTwist(1));
+    const result = partial(starTwist(1, "partial"));
     const four = new Set([0, 4, 5, 12]);
     expect(consistentOn(result.formula, new Set([0, 4, 5, 9, 12]))).toBe(false);
     expect(consistentOn(result.formula, four)).toBe(false);
