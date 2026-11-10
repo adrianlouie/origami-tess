@@ -22,7 +22,7 @@ export type SvgOptions = {
 };
 
 /** Throws RangeError unless every named option is finite and satisfies `ok`. */
-function checkOptions(
+export function checkOptions(
   values: Record<string, number>,
   ok: (n: number) => boolean,
   rule: string,
@@ -33,7 +33,7 @@ function checkOptions(
 }
 
 /** Formats a number to the shared precision, avoiding "-0". */
-function fmt(n: number): string {
+export function fmt(n: number): string {
   const s = n.toFixed(RENDER_PRECISION);
   return Number(s) === 0 ? (0).toFixed(RENDER_PRECISION) : s;
 }
@@ -44,10 +44,10 @@ export type TilingSvgOptions = SvgOptions & {
   readonly pointRadius?: number;
 };
 
-type Px = { readonly x: number; readonly y: number };
+export type Px = { readonly x: number; readonly y: number };
 
 /** Maps an exact lattice point to pixels; y is negated because SVG's y-axis points down. */
-function toPixels(z: Parameters<typeof toCartesian>[0], scale: number): Px {
+export function toPixels(z: Parameters<typeof toCartesian>[0], scale: number): Px {
   const p = toCartesian(z);
   return { x: p.x * scale, y: -p.y * scale };
 }
@@ -56,7 +56,7 @@ function toPixels(z: Parameters<typeof toCartesian>[0], scale: number): Px {
  * Wraps drawn elements in an SVG document whose viewBox is the bounding box of
  * `extent` plus `margin` lattice units. An empty extent gives a zero-size box.
  */
-function svgDocument(
+export function svgDocument(
   extent: readonly Px[],
   body: readonly string[],
   margin: number,
