@@ -168,7 +168,13 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - Missing TSDoc added to four exports; snapshots viewed as images (no seams)
 
 ## Phase 6: 3D viewer
-- [ ] 6.1 Three.js scene with orbit/zoom/pan
+- [x] 6.1 Three.js scene with orbit/zoom/pan — the flat crease pattern as a paper sheet with M/V-coloured creases, and a camera that orbits, zooms and pans
+  - `app/viewer/camera-rig.ts`: the camera as pure math (`Rig` = target, radius, azimuth, polar; +z up). `rigPose`, `orbit` (polar clamped to `POLAR_MIN`, so the screen never flips), `zoom` (clamped radius), `pan` (in screen axes, scaled by the radius), `fitRig` (the bounding sphere fits both view cones, so any orbit keeps the pattern in view), `clipPlanes`. No three import, so it is tested in Node
+  - `app/viewer/sheet.ts`: `sheetGeometry(cp)` gives one position per crease-pattern vertex (same order, z = 0), triangle indices from `triangulateFace`, and crease index pairs per assignment. Faces with holes throw, as in `foldFaces`. `app/viewer/scene.ts`: `buildScene(cp)` (a "sheet" mesh and `creases-<A>` lines that all share one position attribute, so 6.2 can fold the sheet by updating that one buffer) and `applyRig`
+  - `app/viewer/input.ts`: `pointerToRig` maps a left drag to orbit, a right or shift drag to pan (the pattern follows the pointer) and the wheel to zoom. `main.ts`, `gadgets.ts` and the root `index.html` are the Vite page (`npm run dev`, `npm run build`); `main.ts` is the only DOM code and redraws on events, with no animation loop
+  - Decided with the user: our own rig, not three's `OrbitControls`, so the controls are testable without a browser; a flat sheet, not the folded layers (6.2 animates the sheet)
+  - Tests: acceptance on every gadget variant (mesh area equals the sum of face areas, crease counts per assignment, every vertex in view after `fitRig` at three aspect ratios and after random orbits); rig properties (fast-check) for orbit, zoom, pan and `fitRig`; sheet edge cases; input conventions; `core/pipeline.test.ts` builds a scene for every gadget. Mutation-checked: removing the polar clamp, fitting only the vertical field of view, and panning on world axes each fail a test
+  - Checked by eye in headless Chrome: the hexagon twist renders centred with red M, blue V and a dark border. Dragging was not exercised by hand (headless), only by the input tests
 - [ ] 6.2 Bar-and-hinge fold simulation with fold-percentage slider
 
 ## Phase 7: Export

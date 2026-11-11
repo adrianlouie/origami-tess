@@ -1,14 +1,14 @@
 ## Last session: 2026-11-10
-Ran `/next-step`: merged [PR #32](https://github.com/adrianlouie/origami-tess/pull/32) (5.3, layered render), planned and built the Phase 5 audit (5.4), and merged it as [PR #33](https://github.com/adrianlouie/origami-tess/pull/33). Phase 5 is complete.
+Ran `/next-step`: merged [PR #34](https://github.com/adrianlouie/origami-tess/pull/34) (Phase 5 handoff), planned 6.1 in plan mode with the user, built it and opened [PR #35](https://github.com/adrianlouie/origami-tess/pull/35).
 
 ## State
-- Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`. `main` has everything through 5.4; no open PRs, working tree clean. Tests 558; typecheck, lint and `format:check` pass.
-- Phases 0 to 5 are done: lattice, symmetry, gadgets and validators, the M/V solver, and the layer solver with near-foldability, locality and the flat-folded layered render. Nothing exists yet for Phase 6 (3D viewer) or later.
-- `core/pipeline.test.ts` runs every gadget variant through validate, solve and render; add new gadgets to its table.
+- Private repo [origami-tess](https://github.com/adrianlouie/origami-tess), cloned at `~/origami-tess`. Branch `step/6-1-threejs-scene` has 6.1 with PR #35 open (merge it with `/next-step` once CI is green); `main` has everything through the Phase 5 handoff. Tests 632; typecheck, lint and `format:check` pass.
+- Phases 0 to 5 are done, and 6.1 is built: `app/viewer/` has the pure camera rig, the sheet mesh, the scene, the pointer mapping and the Vite page. `npm run dev` opens it, `npm run build` bundles it. Nothing exists yet for 6.2 (bar-and-hinge simulation).
+- `core/pipeline.test.ts` runs every gadget variant through validate, solve and render, and now builds a 3D scene; add new gadgets to its table and to `app/viewer/gadgets.ts`.
 - `.idea/` is excluded locally through `.git/info/exclude`.
 
 ## Next step
-**6.1**, a Three.js scene with orbit, zoom and pan. First thing: ask the user whether they want a detailed plan (`CLAUDE.md`), then write the acceptance test. `app/` is still SVG only, so this adds the first Three.js dependency; decide how to test a WebGL scene without a browser (for example, test the scene graph and camera setup, not pixels).
+**6.2**, the bar-and-hinge fold simulation with a fold-percentage slider. First thing: ask the user whether they want a detailed plan (`CLAUDE.md`). Starting points: `sheetGeometry(cp)` keeps one position per crease-pattern vertex in order, and the paper mesh and every crease line share that one position attribute in `buildScene`, so a simulation updates `position` and sets `needsUpdate`; the creases are indexed lines, so they follow. Twist folds are not rigid-foldable, so a bar-and-hinge model (not rigid origami) is the plan, and the result is approximate; the flat-folded SVG is the accurate render. 6.2 also decides whether to put a slider in `index.html` and how `main.ts` redraws (it has no animation loop, only event-driven draws).
 
 ## Gotchas and decisions
 - `/next-step` squash-merges the open PR (CI green only; stops if red, pending or ambiguous). Each step's own PR ticks its plan box; write the handoff right after opening the PR and commit it to the same branch.
@@ -31,6 +31,7 @@ Ran `/next-step`: merged [PR #32](https://github.com/adrianlouie/origami-tess/pu
 
 - **Near-foldability (5.2d).** A tag is a face (stacking) or vertex (M/V); giving one up drops every clause that mentions it. `minimalConflict` returns *a* minimal conflict, not the smallest: the star twist has a 4-face one ({0, 4, 5, 12}) and the engine reports a 5-face one (20, 21, 23, 24, 27). `minimumRepair` is exact up to 12 tags, else `exact: false`.
 - **Locality (5.2e).** Depth uses the sheet topology (a crease with no bounded face on one side), not the "B" label. It is a profile, not one score: how to rank depth, pieces and area is left to 8.2. Whether an edge conflict is acceptable in practice is for the bar-and-hinge simulation (6.2) to say.
+- **Viewer (6.1).** World axes are right-handed with +z up; the pattern lies at z = 0 and the start view is from the −y side, 0.6 rad off straight down. The rig is our own (`camera-rig.ts`, no three import), not `OrbitControls`; `fitRig` frames the bounding sphere, so any orbit keeps the pattern in view. Floats are fine in `app/viewer/` (render boundary); the tolerance is still `RENDER_TOLERANCE`. `main.ts` is the only DOM code and is not unit-tested; headless Chrome renders it: `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader --window-size=900,700 --virtual-time-budget=4000 --screenshot=<file> http://localhost:5173/` (the Bash sandbox must be off to bind the port). `draw()` is a no-op until a rig exists (a first version threw before the first load). Faces with holes throw in `sheetGeometry`.
 - **Phase 5 audit (5.4) lessons.** `stackFaces` blocks at most `MAX_CYCLE_ROUNDS` cycles and still checks the last model. `minimumRepair` weights must be positive safe integers. `fast-check` `.filter` on a tuple that can never pass (n = 1 with `a !== b`) hangs the run synchronously, so `testTimeout` cannot fire. Gadgets run out of memory (unit-edge rays) long before 2⁵³, so overflow is tested with a hand-built rhombus. Snapshots: `qlmanage -t -s 700 -o <dir> x.svg` rasterizes an SVG on macOS; the partial star renders as one hatched triangle because its four dropped faces fold onto the same place.
 
 ## Open questions
