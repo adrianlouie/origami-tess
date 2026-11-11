@@ -22,6 +22,8 @@ import { solveMv, withMvAssignment } from "./solve/solver";
 import { freed } from "./solve/testing";
 import { foldedToSvg } from "../app/render/folded-svg";
 import { gridToSvg, tilingToSvg } from "../app/render/svg";
+import { GADGET_ENTRIES } from "../app/viewer/gadgets";
+import { buildScene } from "../app/viewer/scene";
 
 type Expected = { status: "ok" } | { status: "partial"; score: { num: number; den: number } };
 
@@ -96,4 +98,13 @@ describe("the partial star twist's conflict locality", () => {
       atEdge: false,
     });
   });
+});
+
+describe("pattern → 3D scene", () => {
+  it.each(GADGET_ENTRIES.map((e) => [e.name, e] as const))(
+    "%s builds a scene with its sheet",
+    (_name, entry) => {
+      expect(buildScene(entry.build()).getObjectByName("sheet")).toBeDefined();
+    },
+  );
 });
