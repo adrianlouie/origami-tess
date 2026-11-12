@@ -2,8 +2,8 @@
  * The flat crease pattern as indexed mesh data for the 3D viewer.
  *
  * Sits between the pattern stage and the render end of the data flow (pattern → … → render). It has
- * no three.js import. Every crease-pattern vertex becomes one position, in the same order, so a
- * later fold simulation (6.2) can move the positions and leave both index lists valid. Exact lattice
+ * no three.js import. Every crease-pattern vertex becomes one position, in the same order, so the
+ * fold simulation (`core/simulate/`) can move the positions and leave both index lists valid. Exact lattice
  * points become floats here, through `toCartesian`.
  */
 

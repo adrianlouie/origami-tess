@@ -1,10 +1,11 @@
 /**
- * Three.js scene for the flat crease pattern, and the camera hookup.
+ * Three.js scene for the crease pattern (flat, then folded by the simulation), and the camera hookup.
  *
  * Render end of the data flow (… → render). It builds scene objects only, with no renderer, so it
  * runs in Node and is tested there; `main.ts` owns the WebGL renderer and the browser events. The
- * paper mesh and every crease line share one position buffer, so the fold simulation moves the
- * vertices by updating that one attribute ({@link updateSheet}).
+ * paper mesh and every solid crease line share one position buffer, so the fold simulation moves the
+ * vertices by updating that one attribute ({@link updateSheet}); dashed (U) lines keep a private
+ * non-indexed copy, because three can only compute their dash distances that way.
  */
 
 import * as THREE from "three";

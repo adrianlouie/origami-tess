@@ -11,9 +11,11 @@ import { hexagonTwist } from "../../core/gadgets/hexagon-twist";
 import { starTwist } from "../../core/gadgets/star-twist";
 import { triangleTwist } from "../../core/gadgets/triangle-twist";
 import type { CreasePattern } from "../../core/pattern/crease-pattern";
-import { relax } from "../../core/simulate/relax";
+import { foldSweep, relax } from "../../core/simulate/relax";
 import {
   FOLD_RATE,
+  MAX_FOLD,
+  sliderToFold,
   foldDriver,
   parseFoldParam,
   parseGadgetParam,
@@ -191,4 +193,83 @@ describe("URL parameters", () => {
     expect(parseGadgetParam("x", 7)).toBe(0);
     expect(parseGadgetParam(null, 7)).toBe(0);
   });
+});
+
+describe("the driver and foldSweep walk the same fold path", () => {
+  /** The fold fractions the driver visits on the way to `target`, with the state at each. */
+  function visit(start: FoldDriver, budget: number, maxTicks: number) {
+    const folds: number[] = [];
+    let d = start;
+    for (let n = 0; n < maxTicks && !d.done; n++) {
+      d = tick(d, budget);
+      folds.push(d.fold);
+    }
+    expect(d.done).toBe(true);
+    return { d, folds };
+  }
+
+  it.each([
+    ["hexagon twist (1, 2)", hexagonTwist(1, 2)],
+    ["triangle twist (6, 2)", triangleTwist(6, 2)],
+  ])("%s: with a large budget the driver equals foldSweep over its own ramp", (_n, cp) => {
+    const { d, folds } = visit(setTarget(foldDriver(cp), 0.5), 100_000, 100);
+    const sweep = foldSweep(d.model, folds, { maxSteps: 100_000 });
+    // Same algorithm and same inputs, so the arrays are identical, not merely close.
+    expect(Array.from(d.state.positions)).toEqual(Array.from(sweep.at(-1)!.positions));
+  });
+
+  it("hexagon twist (1, 2): a browser-sized budget of 100 steps a tick settles to the same shape", () => {
+    const cp = hexagonTwist(1, 2);
+    const { d } = visit(setTarget(foldDriver(cp), 0.5), 100, 20_000);
+    const reference = foldSweep(d.model, [0.5], { maxSteps: 200_000 })[0]!;
+    const worst = Math.max(
+      ...Array.from(d.state.positions).map((v, i) => Math.abs(v - reference.positions[i]!)),
+    );
+    // The ramp reaches 0.5 in 25 small increments, the reference in one jump, so a different
+    // branch would show as a large gap; the equilibrium itself agrees to the relaxation tolerance.
+    expect(worst).toBeLessThan(1e-3);
+  });
+});
+
+describe("sliderToFold: the viewer never asks for a full π", () => {
+  // At a fold of exactly 1 every crease is π and coplanar layers coincide, which z-fights. Stopping
+  // at MAX_FOLD leaves each crease a small opening, so the layers fan apart in the order the
+  // folds set.
+  it("maps slider 0 to flat and slider 100 to MAX_FOLD, below 1", () => {
+    expect(sliderToFold(0)).toBe(0);
+    expect(sliderToFold(100)).toBe(MAX_FOLD);
+    expect(MAX_FOLD).toBeLessThan(1);
+    expect(MAX_FOLD).toBeGreaterThan(0.9);
+  });
+
+  it("is monotone and clamps a stray percentage", () => {
+    fc.assert(
+      fc.property(
+        fc.double({ min: -50, max: 150, noNaN: true }),
+        fc.double({ min: 0, max: 50, noNaN: true }),
+        (a, d) => {
+          expect(sliderToFold(a + d)).toBeGreaterThanOrEqual(sliderToFold(a));
+          expect(sliderToFold(a)).toBeGreaterThanOrEqual(0);
+          expect(sliderToFold(a)).toBeLessThanOrEqual(MAX_FOLD);
+        },
+      ),
+    );
+  });
+
+  it.each([
+    ["hexagon twist (1, 2)", hexagonTwist(1, 2)],
+    ["star twist, full", starTwist(1, "full")],
+  ])(
+    "%s settled at full slider: every M and V crease is nearly closed but still open",
+    (_n, cp) => {
+      const d = run(setTarget(foldDriver(cp), sliderToFold(100)), 5000);
+      expect(d.fold).toBe(MAX_FOLD);
+      d.model.hinges.forEach((h, i) => {
+        if (h.sign === 0) return;
+        const opening = Math.PI - Math.abs(d.state.angles[i]!);
+        expect(opening).toBeGreaterThan(0.005);
+        expect(opening).toBeLessThan(0.1 * Math.PI);
+      });
+    },
+  );
 });
