@@ -7,8 +7,9 @@ import { triangleTwist } from "../../core/gadgets/triangle-twist";
 import { faceDoubledArea, type CreasePattern } from "../../core/pattern/crease-pattern";
 import { RENDER_TOLERANCE } from "../render/cartesian";
 import { fitRig, orbit } from "./camera-rig";
-import { applyRig, buildScene } from "./scene";
-import { ASSIGNMENTS } from "./sheet";
+import { barHingeModel } from "../../core/simulate/model";
+import { applyRig, buildScene, updateSheet } from "./scene";
+import { ASSIGNMENTS, sheetGeometry } from "./sheet";
 
 const GADGETS: [string, CreasePattern][] = [
   ["hexagon twist (1, 2)", hexagonTwist(1, 2)],
@@ -119,5 +120,70 @@ describe.each(GADGETS)("buildScene: %s", (_name, cp) => {
       ),
       { numRuns: 50 },
     );
+  });
+});
+
+describe.each(GADGETS)("updateSheet: %s", (_name, cp) => {
+  it("the simulation model and the sheet share one node order and one triangle list", () => {
+    const model = barHingeModel(cp);
+    const sheet = sheetGeometry(cp);
+    expect(model.triangles.flat()).toEqual(Array.from(sheet.triangles));
+    expect(model.rest.length).toBe(sheet.positions.length);
+    model.rest.forEach((r, i) => expect(Math.abs(r - sheet.positions[i]!)).toBeLessThan(1e-6));
+  });
+});
+
+describe("updateSheet", () => {
+  const cp = hexagonTwist(1, 2);
+
+  /** Rest positions with every vertex lifted to z = h. */
+  function lifted(h: number): Float64Array {
+    const p = Float64Array.from(barHingeModel(cp).rest);
+    for (let i = 2; i < p.length; i += 3) p[i] = h;
+    return p;
+  }
+
+  it("copies the positions into the one attribute the sheet and the creases share", () => {
+    const scene = buildScene(cp);
+    const positions = lifted(2.5);
+    updateSheet(scene, positions);
+    const attribute = sheetOf(scene).geometry.getAttribute("position");
+    expect(attribute.getZ(0)).toBeCloseTo(2.5, 5);
+    const lines = scene.getObjectByName("creases-M") as THREE.LineSegments;
+    expect(lines.geometry.getAttribute("position")).toBe(attribute);
+  });
+
+  it("marks the buffer for upload", () => {
+    const scene = buildScene(cp);
+    const attribute = sheetOf(scene).geometry.getAttribute("position") as THREE.BufferAttribute;
+    const before = attribute.version;
+    updateSheet(scene, lifted(1));
+    expect(attribute.version).toBeGreaterThan(before);
+  });
+
+  it("recomputes the bounding sphere, so the folded sheet is not culled by the flat one", () => {
+    const scene = buildScene(cp);
+    const mesh = sheetOf(scene);
+    mesh.geometry.computeBoundingSphere();
+    const flat = mesh.geometry.boundingSphere!.clone();
+    updateSheet(scene, lifted(50));
+    expect(mesh.geometry.boundingSphere!.center.z).toBeCloseTo(50, 3);
+    expect(mesh.geometry.boundingSphere!.center.z).not.toBeCloseTo(flat.center.z, 1);
+    const line = scene.getObjectByName("creases-M") as THREE.LineSegments;
+    expect(line.geometry.boundingSphere?.center.z ?? 50).toBeCloseTo(50, 3);
+  });
+
+  it("recomputes the normals: a flat sheet faces +z, a tilted one does not", () => {
+    const scene = buildScene(cp);
+    const mesh = sheetOf(scene);
+    const p = Float64Array.from(barHingeModel(cp).rest);
+    for (let i = 0; i < p.length; i += 3) p[i + 2] = 0.5 * p[i]!;
+    updateSheet(scene, p);
+    const normal = mesh.geometry.getAttribute("normal");
+    expect(Math.abs(normal.getZ(0))).toBeLessThan(0.99);
+  });
+
+  it("throws RangeError when the array is the wrong length", () => {
+    expect(() => updateSheet(buildScene(cp), new Float64Array(3))).toThrow(RangeError);
   });
 });
