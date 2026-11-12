@@ -242,3 +242,132 @@ export function hullTriangle(
   }
   throw new RangeError(`No frame radius fits the outer rays of a triangle of side ${side}`);
 }
+
+/**
+ * A strip of facets cut by parallel creases (Lang, Fig. 1.5 for three facets, Fig. 2.107 for the
+ * general strip, pp. 178 to 179): a rectangle one lattice unit tall whose k facets have the given
+ * widths, with one crease between each neighbouring pair.
+ *
+ * The creases run along 90°, a mirror axis of the lattice, so the fold maps are exact.
+ *
+ * @param segments - facet widths from left to right, positive integers
+ * @param assignments - one "M" or "V" per crease, so `segments.length - 1` of them
+ * @throws RangeError for an empty strip, a width that is not a positive safe integer, or a count
+ *   of assignments that does not match
+ */
+export function parallelStrip(
+  segments: readonly number[],
+  assignments: readonly ("M" | "V")[],
+): CreasePattern {
+  if (segments.length === 0) throw new RangeError("a strip needs at least one facet");
+  if (!segments.every((w) => Number.isSafeInteger(w) && w > 0)) {
+    throw new RangeError("facet widths must be positive safe integers");
+  }
+  if (assignments.length !== segments.length - 1) {
+    throw new RangeError("a strip of k facets has k - 1 creases");
+  }
+  const up = eis(1, 2);
+  const width = segments.reduce((a, b) => a + b, 0);
+  const bottom = (x: number) => eis(x, 0);
+  const top = (x: number) => add(eis(x, 0), up);
+  const lines: { from: Eisenstein; to: Eisenstein; assignment: Assignment }[] = [];
+  for (let x = 0; x < width; x++) {
+    lines.push({ from: bottom(x), to: bottom(x + 1), assignment: "B" });
+    lines.push({ from: top(x), to: top(x + 1), assignment: "B" });
+  }
+  lines.push({ from: bottom(0), to: top(0), assignment: "B" });
+  lines.push({ from: bottom(width), to: top(width), assignment: "B" });
+  let x = 0;
+  assignments.forEach((assignment, i) => {
+    x += segments[i]!;
+    lines.push({ from: bottom(x), to: top(x), assignment });
+  });
+  return fromSegments([], lines);
+}
+
+/**
+ * Decides whether a strip folds flat, by trying every stacking order of its facets.
+ *
+ * This is the one-dimensional flat-folding model (Arkin et al., "When can you fold a map?", 2004;
+ * Lang, §2.6, Fig. 2.107). Facet i occupies the interval between its two folded creases; a stack
+ * order (a permutation) is valid when:
+ *
+ * 1. at each crease the M/V sign says which of its two facets is above. Facet i is face-up when i
+ *    is even, so a valley lifts facet i + 1 above facet i exactly when i is even;
+ * 2. no facet whose open interval holds a crease lies between that crease's two facets (a layer
+ *    cannot pass through the hinge);
+ * 3. two creases at the same place that open the same way do not interleave (their hinges would
+ *    cross).
+ *
+ * It shares no code with `stackingClauses`, so it is an independent reference. The search is
+ * exponential in the facet count, so keep strips to about eight facets.
+ *
+ * @param segments - facet widths, positive integers
+ * @param assignments - one "M" or "V" per crease
+ * @returns whether some stacking order is valid
+ */
+export function stripFoldsFlat(
+  segments: readonly number[],
+  assignments: readonly ("M" | "V")[],
+): boolean {
+  const k = segments.length;
+  const lo: number[] = [];
+  const hi: number[] = [];
+  const hingeX: number[] = [];
+  const hingeSide: number[] = [];
+  let q = 0;
+  let dir = 1;
+  for (let i = 0; i < k; i++) {
+    const end = q + dir * segments[i]!;
+    lo.push(Math.min(q, end));
+    hi.push(Math.max(q, end));
+    if (i < k - 1) {
+      hingeX.push(end);
+      // Both facets of a crease lie on the side they came from.
+      hingeSide.push(-dir);
+    }
+    q = end;
+    dir = -dir;
+  }
+  const nextAbove = assignments.map((a, i) => (a === "V") !== (i % 2 === 1));
+
+  const pos: number[] = new Array<number>(k).fill(-1);
+  const used: boolean[] = new Array<boolean>(k).fill(false);
+
+  const complete = (): boolean => {
+    for (let i = 0; i < k - 1; i++) {
+      const a = Math.min(pos[i]!, pos[i + 1]!);
+      const b = Math.max(pos[i]!, pos[i + 1]!);
+      for (let s = 0; s < k; s++) {
+        if (s === i || s === i + 1) continue;
+        if (lo[s]! < hingeX[i]! && hingeX[i]! < hi[s]! && a < pos[s]! && pos[s]! < b) return false;
+      }
+      for (let j = i + 1; j < k - 1; j++) {
+        if (hingeX[j] !== hingeX[i] || hingeSide[j] !== hingeSide[i]) continue;
+        const inside = (p: number) => a < p && p < b;
+        if (inside(pos[j]!) !== inside(pos[j + 1]!)) return false;
+      }
+    }
+    return true;
+  };
+
+  const place = (slot: number): boolean => {
+    if (slot === k) return complete();
+    for (let s = 0; s < k; s++) {
+      if (used[s]) continue;
+      pos[s] = slot;
+      const adjacentOk = [s - 1, s].every((i) => {
+        if (i < 0 || i >= k - 1 || pos[i]! < 0 || pos[i + 1]! < 0) return true;
+        return nextAbove[i]! ? pos[i + 1]! > pos[i]! : pos[i + 1]! < pos[i]!;
+      });
+      if (adjacentOk) {
+        used[s] = true;
+        if (place(slot + 1)) return true;
+        used[s] = false;
+      }
+      pos[s] = -1;
+    }
+    return false;
+  };
+  return place(0);
+}

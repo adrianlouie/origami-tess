@@ -27,7 +27,7 @@ import {
 } from "./overlap";
 import { solveClauses } from "./solver";
 import { aboveLiteral, stackingClauses, type StackingFormula } from "./stacking";
-import { SPOKE_ENDS, sectorFaces, spokePattern } from "./testing";
+import { parallelStrip, SPOKE_ENDS, sectorFaces, spokePattern } from "./testing";
 
 /** Folds the pattern and builds its stacking formula; the pattern must fold. */
 function stackOf(cp: CreasePattern): { formula: StackingFormula; flipped: readonly boolean[] } {
@@ -464,34 +464,9 @@ describe("stackingClauses: transitivity only where three faces share a point", (
   });
 });
 
-/**
- * A strip of three facets A, B, C of widths a, b, c (Lang, Fig. 1.5, pp. 10–11): a rectangle with
- * two parallel creases of one assignment, a lattice unit tall.
- *
- * The creases run along 90°, a mirror axis of the lattice, so the fold maps are exact. Both folds
- * turn the same way, so A and C land on the same side of B.
- */
-function stripOfThirds(a: number, b: number, c: number, assignment: "M" | "V"): CreasePattern {
-  const up = eis(1, 2);
-  const width = a + b + c;
-  const bottom = (x: number) => eis(x, 0);
-  const top = (x: number) => add(eis(x, 0), up);
-  const border: { from: Eisenstein; to: Eisenstein; assignment: Assignment }[] = [];
-  for (let x = 0; x < width; x++) {
-    border.push({ from: bottom(x), to: bottom(x + 1), assignment: "B" });
-    border.push({ from: top(x), to: top(x + 1), assignment: "B" });
-  }
-  border.push({ from: bottom(0), to: top(0), assignment: "B" });
-  border.push({ from: bottom(width), to: top(width), assignment: "B" });
-  return fromSegments(
-    [],
-    [
-      ...border,
-      { from: bottom(a), to: top(a), assignment },
-      { from: bottom(a + b), to: top(a + b), assignment },
-    ],
-  );
-}
+/** A strip of three facets A, B, C of widths a, b, c (Lang, Fig. 1.5, pp. 10–11): both creases the same. */
+const stripOfThirds = (a: number, b: number, c: number, assignment: "M" | "V") =>
+  parallelStrip([a, b, c], [assignment, assignment]);
 
 describe("the strip of thirds (Lang, Fig. 1.5): the order of the outer facets", () => {
   const widths = [1, 2, 3, 4];

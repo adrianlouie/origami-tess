@@ -281,7 +281,30 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - **Finding: three limits from the notes disagree with the solver and were left out.** As `docs/BOOK_IMPROVEMENTS.md` states them, mm/vv needs α ≤ 180° − 360°/n (Eq. 3.11), mv/vm needs α < 360°/n (Eq. 3.12) and a cyclic twist needs min(α, 180° − α) > 360°/n (Thm 17). Read as limits on the two creases at one corner, the shipped hexagon twist (α = 60° = 360°/6, mv at every corner, a cyclic ring of faces) contradicts the second and the third. Either the notes mis-state them or they mean something else; the book is not in the repo. `twist-limits.ts` has only αcrit (Eq. 3.13), which the notes and the solver agree on. 8.1 must read Eqs. 3.11, 3.12, 3.16 (αsafe), Thm 17 and Table 3.2 from the book before filtering with them
   - **Speed:** enumerating the hexagon's 730 solutions with `mvSolutions` takes 9 s, so the counts use a brute-force sweep of all 2^18 assignments (0.15 s) and keep the `mvSolutions` cross-check on the triangle (26 solutions)
   - **Mutation-checked:** the side used for α (see above); the necklace table, the brute-force necklace count and the 2α step count each pin their value
-- [ ] 7.3e Slot A book checks, strip and benchmark part (`audit/phase-7-book-strip`): the 1D strip fixtures for the layer solver (Lang Fig. 2.107, `stripOfThirds` is private to `stacking.test.ts`) and the solver scale benchmark (pair counts, clause counts and times for strips and Miura patches)
+- [x] 7.3e Slot A book checks, strip and benchmark part (`audit/phase-7-book-strip`): the 1D strip fixtures for the layer solver (Lang Fig. 2.107, `stripOfThirds` is private to `stacking.test.ts`) and the solver scale benchmark (pair counts, clause counts and times for strips and Miura patches)
+  - **Baseline:** 1364 tests (2 skipped on purpose), typecheck, lint and format clean; 1387 passed and 2 skipped now
+  - **New code:** `parallelStrip` and `stripFoldsFlat` in `core/solve/testing.ts` (the generator, moved from `stacking.test.ts` where `stripOfThirds` is now a one-line wrapper, and an independent exact 1D oracle that tries every stacking order and shares no code with `stackingClauses`), `core/solve/strip.test.ts`, `core/solve/scale-cases.ts`, `core/solve/solver-scale.bench.ts` (`npm run bench`, not in `npm test`), `core/solve/solver-scale.test.ts`
+  - **Agreement:** the solver and the oracle agree on every assignment of every strip of 2 to 4 facets of width 1 to 4, 4 and 5 facets of width 1 to 3 and 6 facets of width 1 to 2, with both outcomes present
+  - **Finding: the notes' item (b) is wrong.** The alternating assignment does not fail at the circled edges of Fig. 2.107: an accordion stacks its facets in order, so no hinge is ever caught between layers, and the solver folds every accordion (property test, up to 12 facets). The test asserts that instead. The constructive families that also fold: a spiral (one assignment, widths that do not grow), an end fold (a flap no wider than its neighbour) and a crimp (two opposite creases). The book's own canonical assignment ("edge A never covered") was not reconstructed (the book is not in the repo)
+  - **(c) conflicts are local:** for every unfoldable strip tried (4 facets of width 1 to 3, 5 facets of width 1 to 2) the facets of `nearFoldability`'s conflict span a window that the oracle also calls unfoldable, and for [3, 1, 3] with two valleys it names all three facets and both creases
+  - **Benchmark** (means of 3 runs on the dev machine, ms; CI is about 2.3 times slower; `foldFaces` and `solveMv` stay under 2 ms everywhere):
+
+    | input | faces | pairs | clauses | `stackingClauses` | `layerOrder` |
+    | --- | --- | --- | --- | --- | --- |
+    | accordion 10 | 10 | 45 | 377 | 1.1 | 1.1 |
+    | accordion 20 | 20 | 190 | 2 947 | 11.5 | 11.0 |
+    | accordion 40 | 40 | 780 | 22 687 | 85 | 87 |
+    | accordion 80 | 80 | 3 160 | 176 567 | 738 | 699 |
+    | accordion 160 | 160 | 12 720 | 1 389 927 | 5 805 | 5 953 |
+    | spiral 40 | 40 | 780 | 21 281 | 85 | 87 |
+    | hexagon twist (2, 5) | 13 | 66 | 522 | 3.0 | 3.1 |
+    | triangle twist (6, 2) | 7 | 15 | 69 | 0.5 | 0.5 |
+    | star twist (2) | 30 | 435 | 9 884 | 108 | 113 |
+    | defect strip 40 (`nearFoldability` 174) | 40 | | | | 84 |
+
+  - **Verdict on Rust→WASM: not now, and not the first fix.** Pairs grow as k² and clauses as k³ (doubling the facets multiplies clauses by about 8; pinned in `solver-scale.test.ts`), and the time follows the clauses: `layerOrder` costs the same as building the formula, so DPLL is not the bottleneck. A port would buy a constant factor on a cubic term (accordion 320 would be about 45 s even at five times faster). The shipped gadgets stay at 7, 13 and 30 faces whatever their size (at most 0.11 s), so they are far from the limit; only a patch of many fully overlapping facets reaches it. If Phase 8 generates such patches, cut the transitivity clauses first (back-log), then reconsider a port
+  - **Left out:** Miura patches (a Miura-ori needs a square lattice, B.0), so the benchmark has strips and the three gadgets; the gadgets grow in size, not in facets, so only the strips show growth in facet count
+  - **Mutation-checked:** dropping the non-interleave rule, dropping the covered-hinge rule and flipping one crease's sign in the oracle each fail the agreement tests (flipping every sign is a mirror image and cannot be seen)
 
 ## Phase 8: Generative math
 - [ ] 8.1 Parameter sweeps (twist angle, n)

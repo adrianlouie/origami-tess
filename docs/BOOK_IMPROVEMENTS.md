@@ -308,8 +308,8 @@ Priority: P1 do soon, P2 useful, P3 later or optional.
 **Changes and additions**
 1. **P2 [test] 1D strip fixtures for the layer solver (pp. 178–179, Fig. 2.107).** A strip folded along parallel creases has a canonical crease assignment: the cross-creases are assigned so that,
    on one side, edge A is never covered by a facet interior, and on the other side edge B is not (edge-on-edge coverage is allowed). This is a pure Justin non-crossing rule and gives
-   an independent, constructive answer. Add strip fixtures to `stacking`/`layer-order` tests: given crease positions on a lattice strip, (a) the book's assignment is satisfiable, (b) the alternating
-   M/V assignment is `unsat` exactly in the cases where the amber circles in Fig. 2.107 show a covered edge, (c) `nearFoldability`'s conflict faces lie around those circles.
+   an independent, constructive answer. Add strip fixtures to `stacking`/`layer-order` tests: given crease positions on a lattice strip, (a) the book's assignment is satisfiable, (b) ~~the alternating
+   M/V assignment is `unsat` exactly in the cases where the amber circles in Fig. 2.107 show a covered edge~~ (wrong, found in 7.3e: an accordion always folds; test against an exact 1D oracle instead), (c) `nearFoldability`'s conflict faces lie around those circles.
 2. **P2 [test] Scalability benchmark (pp. 87, 175).** Long strips and n×n Miura-oris are the natural large inputs; the PLAN risk line says the TypeScript solver may be too slow past the
    hexagon/star sizes (435 pairs, 66 ms). Record pair counts, clause counts and times for strips and Miura patches of increasing size, so the "port to Rust→WASM" decision is made on data.
 3. **P3 [exact] Waterbomb tessellation (§2.4.7).** Square-grid pattern of degree-6 vertices obtained from a semigeneralised Miura-ori by shrinking the shortest segments to zero, with a second
@@ -653,3 +653,5 @@ Checks on code that already exists; no new modules.
 
 ### Out of scope
 Rotational solids (Ch. 10), triangulated cylinders and Kresling (Ch. 2), Troublewit and corrugations (Ch. 2), curved folds.
+
+**Status after 7.3e (2026-11-12).** Done: the strip generator `parallelStrip`, an independent exact 1D oracle `stripFoldsFlat`, agreement with the solver on every small strip, the constructive families (accordion, spiral, end fold, crimp), the locality of `nearFoldability` conflicts, and the scale benchmark with its verdict (clause generation is cubic and is the cost; Rust→WASM is not the first fix). The notes' item (b) was wrong and is struck through above. **Slot A is complete.** Not reconstructed: the book's own canonical strip assignment.
