@@ -4,6 +4,12 @@
  * Render end of the data flow. Colour alone fails in a black-and-white print, so mountain and
  * valley differ in dash pattern too (the origami diagram convention: valley dashed, mountain
  * dash-dot). Dash lengths are multiples of the stroke width, so a pattern scales with its line.
+ *
+ * Lang (*Twists, Tilings, and Tessellations*, pp. 7–8) argues that dash-and-chain lines "dissolve
+ * into a visual morass" on a dense pattern and recommends "CP colouring" there: mountain dark, less
+ * saturated and solid, valley lighter, more saturated and dashed. This table keeps the diagram
+ * convention, which survives a black-and-white print and matches the folding instructions; a
+ * second preset in this file would be the place for dense or A4-printed crease patterns.
  */
 
 import type { Assignment } from "../../core/pattern/crease-pattern";

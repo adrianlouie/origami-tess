@@ -256,6 +256,37 @@ export function faceCount(cp: CreasePattern): number {
   return cp.faces.length + 1;
 }
 
+/**
+ * Counts the excess degrees of freedom of a facial plane graph, a necessary test for a reciprocal
+ * figure to exist before any is built.
+ *
+ * Formula (Lang, *Twists, Tilings, and Tessellations*, §6.4.1, Eqs. 6.22–6.29): with F the number
+ * of bounded faces, E the number of edges and E_b the number of border edges (those with paper on
+ * one side only), a reciprocal figure has 2F unknowns (one point per face), one linear condition
+ * per interior edge (E − E_b of them) and three degrees of freedom (a translation and a uniform
+ * scale) that change nothing, so the excess is
+ * 2F − (E − E_b) − 3 = 2F − E + E_b − 3.
+ * By Euler's formula for a connected pattern this equals F + E_b − V − 2, the book's condition
+ * F + E_b − V ≥ 2 rearranged. It is sufficient only for generic embeddings: a symmetric one can
+ * have a reciprocal figure despite a negative excess (Lang, Fig. 6.13).
+ *
+ * A side of an edge is paper when it lies on a bounded face walk or a hole walk; the sides of a
+ * component nested inside a face face that face, so such an edge is not on the border.
+ *
+ * @returns an integer; negative means no generic embedding has a reciprocal figure
+ */
+export function maxwellExcess(cp: CreasePattern): number {
+  const paper = new Set<string>();
+  for (const walk of [...cp.faces, ...cp.holes.flat()]) {
+    walk.forEach((v, i) => paper.add(`${v},${walk[(i + 1) % walk.length]}`));
+  }
+  let border = 0;
+  for (const e of cp.edges) {
+    if (paper.has(`${e.v0},${e.v1}`) !== paper.has(`${e.v1},${e.v0}`)) border++;
+  }
+  return 2 * cp.faces.length - cp.edges.length + border - 3;
+}
+
 /** Returns C, the number of connected components, by union-find; isolated vertices count. */
 export function componentCount(cp: CreasePattern): number {
   const parent = cp.vertices.map((_, i) => i);

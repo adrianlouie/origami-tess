@@ -14,7 +14,13 @@ import { hexagonTwist } from "./gadgets/hexagon-twist";
 import { starTwist } from "./gadgets/star-twist";
 import { triangleTwist } from "./gadgets/triangle-twist";
 import type { CreasePattern } from "./pattern/crease-pattern";
-import { checkLocalFlatFoldability } from "./validate/local-flat-foldability";
+import { twoColor } from "./pattern/faces";
+import { cross } from "./lattice/direction";
+import { sub } from "./lattice/eisenstein";
+import { apply } from "./symmetry/affine";
+import { foldFaces } from "./solve/folded-faces";
+import { isAbove, layerOrder } from "./solve/layer-order";
+import { checkLocalFlatFoldability, interiorVertices } from "./validate/local-flat-foldability";
 import { conflictLocality } from "./solve/locality";
 import { layeredView } from "./solve/layered-view";
 import { nearFoldability } from "./solve/near-foldability";
@@ -68,6 +74,8 @@ describe.each(GADGETS)("%s through the whole data flow", (_name, cp, expected) =
       maekawa: [],
       unassigned: [],
       bigLittleBig: [],
+      borderBigLittleBig: [],
+      singleVertex: [],
     });
   });
 
@@ -75,7 +83,14 @@ describe.each(GADGETS)("%s through the whole data flow", (_name, cp, expected) =
     const result = solveMv(freed(cp));
     if (result.status !== "sat") throw new Error(`expected sat, got ${result.status}`);
     const report = checkLocalFlatFoldability(withMvAssignment(freed(cp), result.assignment));
-    expect(report).toEqual({ kawasaki: [], maekawa: [], unassigned: [], bigLittleBig: [] });
+    expect(report).toEqual({
+      kawasaki: [],
+      maekawa: [],
+      unassigned: [],
+      bigLittleBig: [],
+      borderBigLittleBig: [],
+      singleVertex: [],
+    });
   });
 
   it("has the documented foldability, and the layered view renders to match", () => {
@@ -93,6 +108,65 @@ describe.each(GADGETS)("%s through the whole data flow", (_name, cp, expected) =
     expect([...svg.matchAll(/<polygon data-dropped=/g)]).toHaveLength(view.dropped.length);
     expect([...svg.matchAll(/<line data-edge=/g)]).toHaveLength(view.conflictCreases.length);
   });
+});
+
+describe.each(GADGETS)("%s: facts the book proves about a flat fold", (_name, cp, expected) => {
+  it("has a face two-colouring that is the folded flips (Lang §1.1, pp. 14–15)", () => {
+    const colours = twoColor(cp);
+    expect(colours).not.toBeNull();
+    const folded = foldFaces(cp);
+    if (folded.status !== "ok") throw new Error(`fold is ${folded.status}`);
+    // Face 0 is the unflipped base of `foldFaces`, so a face is flipped iff its colour differs.
+    cp.faces.forEach((_, f) => expect(colours![f] !== colours![0]).toBe(folded.flipped[f]));
+  });
+
+  // The two theorems below hold for a pattern that folds flat, so the partial star is left out.
+  it.skipIf(expected.status !== "ok")(
+    "folds every interior vertex's creases into one half-plane (Thm 10, p. 41)",
+    () => {
+      const folded = foldFaces(cp);
+      if (folded.status !== "ok") throw new Error(`fold is ${folded.status}`);
+      for (const v of interiorVertices(cp)) {
+        // Where the crease along edge e lands: the folded image of the segment from v, taken in
+        // a face that has the crease on its boundary (any other face folds elsewhere).
+        const rays = cp.rotation[v]!.map((e) => {
+          const edge = cp.edges[e]!;
+          const other = edge.v0 === v ? edge.v1 : edge.v0;
+          const f = cp.faces.findIndex((w) =>
+            w.some((x, i) => {
+              const y = w[(i + 1) % w.length];
+              return (x === v && y === other) || (x === other && y === v);
+            }),
+          );
+          const map = folded.transforms[f]!;
+          return sub(apply(map, cp.vertices[other]!), apply(map, cp.vertices[v]!));
+        });
+        // All rays lie in a closed half-plane iff some ray has every other on its left or on it.
+        expect(rays.some((r) => rays.every((q) => cross(r, q) >= 0))).toBe(true);
+      }
+    },
+  );
+
+  it.skipIf(expected.status !== "ok")(
+    "shows the white side at a vertex exactly when it is mountain-like, M − V = +2 (p. 29)",
+    () => {
+      const order = layerOrder(cp);
+      if (order.status !== "ok") throw new Error(`layer order is ${order.status}`);
+      const signs = new Set<number>();
+      for (const v of interiorVertices(cp)) {
+        const around = cp.faces.map((_, f) => f).filter((f) => cp.faces[f]!.includes(v));
+        // The sheet on top where all of them meet: no overlapping face of the vertex is above it.
+        const tops = around.filter((f) => around.every((g) => isAbove(order, g, f) !== true));
+        expect(tops).toHaveLength(1);
+        const marks = cp.rotation[v]!.map((e) => cp.edges[e]!.assignment);
+        const sign = marks.filter((a) => a === "M").length - marks.filter((a) => a === "V").length;
+        // Face 0 is unflipped: the white side up. Mountain-like shows white, valley-like colour.
+        expect(order.folded.flipped[tops[0]!]).toBe(sign < 0);
+        signs.add(sign);
+      }
+      expect(signs.size).toBeGreaterThan(0);
+    },
+  );
 });
 
 describe("the partial star twist's conflict locality", () => {

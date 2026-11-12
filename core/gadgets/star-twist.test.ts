@@ -31,7 +31,14 @@ const key = (c: Crease, withAssignment = true) => {
   return withAssignment ? `${x}|${y}|${c.assignment}` : `${x}|${y}`;
 };
 
-const clean = { kawasaki: [], maekawa: [], unassigned: [], bigLittleBig: [] };
+const clean = {
+  kawasaki: [],
+  maekawa: [],
+  unassigned: [],
+  bigLittleBig: [],
+  borderBigLittleBig: [],
+  singleVertex: [],
+};
 
 const hasPoint = (pts: Eisenstein[], p: Eisenstein) => pts.some((z) => equals(z, p));
 

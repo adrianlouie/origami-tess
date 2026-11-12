@@ -12,8 +12,13 @@ import {
   faceCount,
   faceDoubledArea,
   fromSegments,
+  maxwellExcess,
   type CreasePattern,
 } from "./crease-pattern";
+import { hexagonTwist } from "../gadgets/hexagon-twist";
+import { starTwist } from "../gadgets/star-twist";
+import { triangleTwist } from "../gadgets/triangle-twist";
+import { spokePattern } from "../solve/testing";
 
 const pt = (a: number, b: number) => eis(a, b);
 const seg = (p: Eisenstein, q: Eisenstein) => ({ from: p, to: q });
@@ -407,5 +412,69 @@ describe("faces and interior vertices against a flood fill of unit triangles", (
       ),
       { numRuns: 300 },
     );
+  });
+});
+
+describe("maxwellExcess (Lang §6.4.1: excess degrees of freedom 2F − E + E_b − 3)", () => {
+  it("is −1 for a bare triangle: one face, three edges, all on the border", () => {
+    const triangle = fromSegments(
+      [],
+      [seg(pt(0, 0), pt(1, 0)), seg(pt(1, 0), pt(1, 1)), seg(pt(1, 1), pt(0, 0))],
+    );
+    expect(maxwellExcess(triangle)).toBe(-1);
+  });
+
+  it("is 1 for a right-angle vertex in a hexagonal frame (4 faces, 16 edges, 12 on the border)", () => {
+    expect(maxwellExcess(spokePattern([0, 3, 6, 9], "U"))).toBe(2 * 4 - 16 + 12 - 3);
+  });
+
+  it("counts the border edges of a pattern whose sheet has a hole through its nested component", () => {
+    // A triangle inside a triangle: the inner component's edges have paper on both sides, so only
+    // the outer ring is on the border: F = 2 (the annulus and the inner face), E = 6, E_b = 3.
+    const outer = [pt(-6, -6), pt(6, 0), pt(0, 6)];
+    const inner = [pt(0, 0), pt(1, 0), pt(0, 1)];
+    const cp = fromSegments(
+      [],
+      [...outer, ...inner].map((p, i) => {
+        const ring = i < 3 ? outer : inner;
+        return seg(p, ring[((i % 3) + 1) % 3]!);
+      }),
+    );
+    expect(cp.faces).toHaveLength(2);
+    expect(maxwellExcess(cp)).toBe(2 * 2 - 6 + 3 - 3);
+  });
+
+  it("equals F + E_b − V − 2 for a connected pattern, by Euler's formula", () => {
+    fc.assert(
+      fc.property(
+        // At least one spoke, or the origin is an isolated vertex and there are two components.
+        fc.subarray([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], { minLength: 1 }),
+        fc.constantFrom("M", "V", "U"),
+        (spokes, mark) => {
+          const cp = spokePattern(spokes, mark);
+          const border = cp.edges.filter((e) => e.assignment === "B").length;
+          // Euler: V − E + F = 1 + C with C = 1 for a connected pattern.
+          expect(componentCount(cp)).toBe(1);
+          expect(maxwellExcess(cp)).toBe(faceCount(cp) - 1 + border - cp.vertices.length - 2);
+        },
+      ),
+    );
+  });
+
+  it("agrees with a count by assignment for each gadget: the border is exactly its B edges", () => {
+    for (const cp of [hexagonTwist(1, 2), hexagonTwist(2, 3), triangleTwist(6, 2), starTwist(1)]) {
+      const border = cp.edges.filter((e) => e.assignment === "B").length;
+      expect(maxwellExcess(cp)).toBe(2 * cp.faces.length - cp.edges.length + border - 3);
+    }
+  });
+
+  it("has the values counted by hand for the shipped gadgets, all non-negative", () => {
+    // Hexagon twist (1, 2): V = 18, E = 30, F = 13 bounded faces, E_b = 12 (the radius-2 frame),
+    // so 2·13 − 30 + 12 − 3 = 5, and Euler's F + E_b − V − 2 = 13 + 12 − 18 − 2 = 5 agrees.
+    expect(maxwellExcess(hexagonTwist(1, 2))).toBe(5);
+    expect(maxwellExcess(hexagonTwist(2, 3))).toBe(5);
+    expect(maxwellExcess(triangleTwist(3, 1))).toBe(2);
+    expect(maxwellExcess(triangleTwist(6, 2))).toBe(2);
+    expect(maxwellExcess(starTwist(1))).toBe(9);
   });
 });

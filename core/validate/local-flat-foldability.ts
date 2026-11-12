@@ -12,42 +12,13 @@
  * Maekawa–Justin theorems); Hull, "Project Origami", ch. 4.
  */
 
-import { primitive } from "../lattice/direction";
-import { conj, eis, mul, sub, type Eisenstein } from "../lattice/eisenstein";
+import { sub, type Eisenstein } from "../lattice/eisenstein";
 import type { Assignment, CreasePattern } from "../pattern/crease-pattern";
-import { bigLittleBigFlat } from "./big-little-big";
+import { bigLittleBigFlat, singleVertexFlat } from "./big-little-big";
+import { borderRuns, interiorVertices } from "./border-vertices";
+import { kawasakiFlat } from "./kawasaki";
 
-/**
- * Tests the Kawasaki–Justin condition: the alternating sector angles at a vertex sum to π.
- *
- * Theorem (Kawasaki 1989; Demaine & O'Rourke, Thm 12.2.1): a vertex with crease directions at
- * angles θ₁ < … < θ₂ₙ (radians, counter-clockwise) can fold flat only if
- * α₁ + α₃ + … + α₂ₙ₋₁ = π, where αᵢ = θᵢ₊₁ − θᵢ are the sector angles.
- *
- * Exact form: the odd sector sum is Σ(θ₂ₖ − θ₂ₖ₋₁) = arg Q with Q = Π d₂ₖ · conj(d₂ₖ₋₁), taking
- * dᵢ as the Eisenstein direction vectors. The sum lies strictly in (0, 2π) because the other
- * (even) sum is positive and the two total 2π, so it equals π exactly when Q is a negative real.
- * For Eisenstein integers that is `b === 0 && a < 0`: no angle is ever computed. Each product is
- * reduced to a primitive vector, which only drops a positive scale factor.
- *
- * A cyclic shift of the list swaps the odd and even sums, and the two are equal at the solution
- * (both π), so any starting point of the counter-clockwise order gives the same answer.
- *
- * @param directions - crease direction vectors in counter-clockwise cyclic order, pairwise on
- *   distinct rays
- * @returns false for odd degree and for an empty list
- * @throws RangeError if an intermediate product leaves the safe-integer range
- */
-export function kawasakiFlat(directions: readonly Eisenstein[]): boolean {
-  if (directions.length === 0 || directions.length % 2 !== 0) return false;
-  let q = eis(1, 0);
-  for (let i = 0; i < directions.length; i += 2) {
-    const from = primitive(directions[i]!);
-    const to = primitive(directions[i + 1]!);
-    q = primitive(mul(q, mul(to, conj(from))));
-  }
-  return q.b === 0 && q.a < 0;
-}
+export { interiorVertices, kawasakiFlat };
 
 /**
  * Tests the Maekawa–Justin condition: mountains and valleys differ by exactly two.
@@ -55,36 +26,15 @@ export function kawasakiFlat(directions: readonly Eisenstein[]): boolean {
  * Theorem (Maekawa 1980, Justin 1986; Demaine & O'Rourke, Thm 12.2.4): at a flat-foldable
  * vertex, |#M − #V| = 2. The condition forces even degree.
  *
+ * The usual argument (Lang, p. 28, Fig. 1.20) assumes the folded paper does not pass through
+ * itself, so it needs the fold to be injective: it is not a fact about isometries alone, and it
+ * fails for "ghost paper" whose layers are allowed to cross.
+ *
  * @param assignments - the M/V assignment of every crease at the vertex
  */
 export function maekawaFlat(assignments: readonly ("M" | "V")[]): boolean {
   const m = assignments.filter((a) => a === "M").length;
   return Math.abs(m - (assignments.length - m)) === 2;
-}
-
-/**
- * Returns the indices of the vertices that are fully surrounded by bounded faces.
- *
- * A vertex qualifies when it has at least one crease, none is a border edge ("B"), and every
- * sector around it lies in a bounded face. Each sector at v is one visit of v by one face walk,
- * and `faces` lists only bounded faces, so the condition is: v occurs in the face walks exactly
- * deg(v) times. A component nested inside a face contributes its outer walk as a hole of that face,
- * which is counted too, so its vertices are checked rather than skipped. Vertices on the outer ring
- * of a patch fail it, so they are not wrongly flagged.
- *
- * @returns vertex indices in increasing order
- */
-export function interiorVertices(cp: CreasePattern): number[] {
-  const visits = cp.vertices.map(() => 0);
-  const walks = [...cp.faces, ...cp.holes.flat()];
-  for (const walk of walks) for (const v of walk) visits[v] = (visits[v] ?? 0) + 1;
-  const result: number[] = [];
-  cp.vertices.forEach((_, v) => {
-    const around = cp.rotation[v] ?? [];
-    const border = around.some((e) => cp.edges[e]?.assignment === "B");
-    if (around.length > 0 && !border && visits[v] === around.length) result.push(v);
-  });
-  return result;
 }
 
 /**
@@ -125,10 +75,22 @@ export type LocalFlatFoldabilityReport = {
    * lemma presumes a Kawasaki vertex, so other vertices are not tested.
    */
   readonly bigLittleBig: readonly number[];
+  /**
+   * Vertices on the edge of the sheet where a run of small sectors is bounded by creases that are
+   * all mountains or all valleys. A run with an unassigned crease is left out: nothing is known.
+   */
+  readonly borderBigLittleBig: readonly number[];
+  /**
+   * Interior vertices that are fully assigned and pass Kawasaki, Maekawa and Big-Little-Big but
+   * still cannot fold flat, which only Hull's single-vertex reduction catches (degree 6 and up).
+   */
+  readonly singleVertex: readonly number[];
 };
 
 /**
- * Checks the Kawasaki, Maekawa and Big-Little-Big conditions at every interior vertex.
+ * Checks the Kawasaki, Maekawa and Big-Little-Big conditions at every interior vertex, then Hull's
+ * single-vertex test on those that pass all three, and Big-Little-Big alone at every vertex on the
+ * edge of the sheet.
  *
  * Flat ("F") creases are ignored: they do not fold, so they divide no sector. Kawasaki is
  * geometric and treats "U" like any other crease. Maekawa needs M/V, so a vertex with a "U"
@@ -142,6 +104,14 @@ export function checkLocalFlatFoldability(cp: CreasePattern): LocalFlatFoldabili
   const maekawa: number[] = [];
   const unassigned: number[] = [];
   const bigLittleBig: number[] = [];
+  const singleVertex: number[] = [];
+  const borderBigLittleBig = new Set<number>();
+  for (const { vertex, edges } of borderRuns(cp)) {
+    const marks = edges.map((e) => cp.edges[e]!.assignment);
+    if (marks.every((a) => (a === "M" || a === "V") && a === marks[0])) {
+      borderBigLittleBig.add(vertex);
+    }
+  }
   for (const v of interiorVertices(cp)) {
     const { edges, directions } = foldingCreases(cp, v);
     const assignments: Assignment[] = edges.map((e) => cp.edges[e]!.assignment);
@@ -156,6 +126,16 @@ export function checkLocalFlatFoldability(cp: CreasePattern): LocalFlatFoldabili
     const folds = assignments as ("M" | "V")[];
     if (!maekawaFlat(folds)) maekawa.push(v);
     if (kawasakiOk && !bigLittleBigFlat(directions, folds)) bigLittleBig.push(v);
+    else if (kawasakiOk && maekawaFlat(folds) && !singleVertexFlat(directions, folds)) {
+      singleVertex.push(v);
+    }
   }
-  return { kawasaki, maekawa, unassigned, bigLittleBig };
+  return {
+    kawasaki,
+    maekawa,
+    unassigned,
+    bigLittleBig,
+    borderBigLittleBig: [...borderBigLittleBig].sort((a, b) => a - b),
+    singleVertex,
+  };
 }

@@ -10,7 +10,7 @@
  * identity below is derived from the Cartesian map a + bω ↦ (a − b/2, b√3/2).
  */
 
-import { checkedAdd, checkedMul, eis, sub, type Eisenstein } from "./eisenstein";
+import { checkedAdd, checkedMul, conj, eis, mul, neg, sub, type Eisenstein } from "./eisenstein";
 
 /**
  * Returns ad − bc for u = a + bω and v = c + dω.
@@ -118,4 +118,46 @@ export function windingNumber(polygon: readonly Eisenstein[], p: Eisenstein): nu
     }
   }
   return wn;
+}
+
+/**
+ * Finds the fourth crease that makes a degree-4 vertex satisfy Kawasaki's condition.
+ *
+ * Theorem (Kawasaki–Justin, Lang §1.4.4, Figs. 1.30–1.33): at a flat-foldable vertex of degree 4
+ * the sectors satisfy α₁ + α₃ = π, so with creases at angles φ₁ < φ₂ < φ₃ < φ₄ (radians,
+ * counter-clockwise, αᵢ = φᵢ₊₁ − φᵢ) the fourth is φ₄ = π + φ₁ + φ₃ − φ₂. As direction vectors
+ * (up to a positive scale) that is d₄ ∝ −d₁ · d₃ · conj(d₂): the arguments add and subtract, and
+ * the minus sign is the π. It is one product of lattice vectors, so the answer is exact in Z[ω]
+ * with no square root and no search; gadgets and the Phase 8 generators can build Kawasaki-valid
+ * vertices by construction instead of by trial.
+ *
+ * The ray exists only if it falls strictly between d₃ and d₁ going counter-clockwise. That holds
+ * exactly when the sector from d₂ to d₃ is less than π: then α₃ = π − α₁ fits in what is left of
+ * the circle.
+ *
+ * @param d1 - first crease direction
+ * @param d2 - second crease direction, counter-clockwise from d1
+ * @param d3 - third crease direction, counter-clockwise from d2 and within one turn of d1
+ * @returns the primitive direction of the fourth crease, or null if the three are not distinct
+ *   rays in counter-clockwise order or the fourth would not lie between d3 and d1
+ * @throws RangeError if a product leaves the safe-integer range
+ */
+export function completeDegree4(d1: Eisenstein, d2: Eisenstein, d3: Eisenstein): Eisenstein | null {
+  const rays = [d1, d2, d3];
+  // Counter-clockwise cyclic order of distinct rays means exactly one descent round the cycle,
+  // and no two consecutive rays equal.
+  if (!isCounterClockwise(rays)) return null;
+  const d4 = primitive(neg(mul(mul(primitive(d1), primitive(d3)), conj(primitive(d2)))));
+  return isCounterClockwise([...rays, d4]) ? d4 : null;
+}
+
+/** Whether the rays are distinct and in counter-clockwise cyclic order within one turn. */
+function isCounterClockwise(rays: readonly Eisenstein[]): boolean {
+  let descents = 0;
+  for (let i = 0; i < rays.length; i++) {
+    const order = compareAngle(rays[i]!, rays[(i + 1) % rays.length]!);
+    if (order === 0) return false;
+    if (order > 0) descents++;
+  }
+  return descents === 1;
 }

@@ -7,12 +7,15 @@ import { triangleTwist, triangleTwistCreases } from "../gadgets/triangle-twist";
 import { hexagonTwist, hexagonTwistCreases } from "../gadgets/hexagon-twist";
 import type { Crease } from "../gadgets/crease";
 import { fromSegments, type CreasePattern } from "../pattern/crease-pattern";
-import { bigLittleBigFlat } from "../validate/big-little-big";
+import { spokePattern } from "./testing";
+import { bigLittleBigFlat, singleVertexFlat } from "../validate/big-little-big";
 import {
   checkLocalFlatFoldability,
   kawasakiFlat,
   maekawaFlat,
 } from "../validate/local-flat-foldability";
+import { borderLinePattern, foldsFlat } from "../validate/testing";
+import { mvSolutions, solveMv } from "./solver";
 import {
   assignmentFromPattern,
   localMvClauses,
@@ -61,9 +64,10 @@ const bitsToBool = (bits: number, n: number): boolean[] =>
   Array.from({ length: n }, (_, i) => ((bits >> i) & 1) === 1);
 
 describe("vertexClauses", () => {
-  // Properties: Maekawa–Justin (D&O Thm 12.2.4) and Big-Little-Big (D&O §12.2) at one vertex.
+  // Properties: Maekawa–Justin (D&O Thm 12.2.4), Big-Little-Big (D&O §12.2) and Hull's
+  // single-vertex test (Lang §1.2.7) at one vertex: together they decide the single vertex exactly.
   for (const n of [4, 6]) {
-    it(`accepts exactly the assignments with Maekawa and Big-Little-Big at degree ${n}, for every Kawasaki vertex drawn from the 30° directions`, () => {
+    it(`accepts exactly the assignments that fold flat at degree ${n}, for every Kawasaki vertex drawn from the 30° directions`, () => {
       const edges = Array.from({ length: n }, (_, i) => i);
       let vertices = 0;
       for (const dirs of pools(n)) {
@@ -73,14 +77,32 @@ describe("vertexClauses", () => {
         const formula = { variableCount: n, clauses, kawasaki: [] };
         for (let bits = 0; bits < 2 ** n; bits++) {
           const mv = bitsToMV(bits, n);
-          expect(satisfies(formula, bitsToBool(bits, n))).toBe(
-            maekawaFlat(mv) && bigLittleBigFlat(dirs, mv),
-          );
+          const flat = foldsFlat(dirs, mv);
+          expect(satisfies(formula, bitsToBool(bits, n))).toBe(flat);
+          expect(flat).toBe(singleVertexFlat(dirs, mv));
+          // Maekawa and Big-Little-Big alone are necessary, so they never reject a fold.
+          if (flat) expect(maekawaFlat(mv) && bigLittleBigFlat(dirs, mv)).toBe(true);
         }
       }
       expect(vertices).toBeGreaterThan(0);
     });
   }
+
+  it("adds single-vertex clauses at degree 6 for what Maekawa and Big-Little-Big let through", () => {
+    // Some Kawasaki vertex of degree 6 has an assignment that passes both and still cannot fold.
+    const edges = [0, 1, 2, 3, 4, 5];
+    const kinds = new Set(
+      pools(6)
+        .filter((dirs) => kawasakiFlat(dirs))
+        .flatMap((dirs) => vertexClauses(0, edges, dirs).map((c) => c.kind)),
+    );
+    expect(kinds.has("single-vertex")).toBe(true);
+    // At degree 4 Big-Little-Big is already exact, so Hull adds nothing.
+    const four = pools(4)
+      .filter((dirs) => kawasakiFlat(dirs))
+      .flatMap((dirs) => vertexClauses(0, [0, 1, 2, 3], dirs).map((c) => c.kind));
+    expect(four).not.toContain("single-vertex");
+  });
 
   it("emits only Maekawa clauses at a vertex that fails Kawasaki", () => {
     const dirs = pools(4).find((d) => !kawasakiFlat(d))!;
@@ -265,5 +287,73 @@ describe("localMvClauses", () => {
     const cp = stripped(triangleTwistCreases(1, 1));
     expect(() => violatedClauses(localMvClauses(cp), [])).toThrow(RangeError);
     expect(() => assignmentFromPattern(cp)).toThrow(RangeError);
+  });
+});
+
+describe("Big-Little-Big at a border vertex (Lang, p. 52, Fig. 1.45)", () => {
+  const unset = borderLinePattern("U", "U");
+  const P = unset.vertices.findIndex((z) => z.a === 2 && z.b === 1);
+  // Counter-clockwise from +x the edges at P run along 120° (frame), 180°, 210°, 300° (frame).
+  const [, west, south] = unset.rotation[P]!;
+
+  it("encodes the small sector between two paper sectors as an anto pair of clauses", () => {
+    const pair = localMvClauses(unset).clauses.filter((c) => c.kind === "border-big-little-big");
+    expect(pair.map((c) => c.literals)).toEqual([
+      [west! + 1, south! + 1],
+      [-(west! + 1), -(south! + 1)],
+    ]);
+    expect(pair.every((c) => c.kind === "border-big-little-big" && c.vertex === P)).toBe(true);
+  });
+
+  it("makes the solver give the two creases different assignments", () => {
+    const result = solveMv(unset);
+    expect(result.status).toBe("sat");
+    if (result.status !== "sat") return;
+    expect(result.assignment[west!]).not.toBe(result.assignment[south!]);
+  });
+
+  it.each([
+    ["M", "M", "unsat"],
+    ["V", "V", "unsat"],
+    ["M", "V", "sat"],
+    ["V", "M", "sat"],
+  ] as const)("with the creases set to %s and %s the solver says %s", (a, b, status) => {
+    expect(solveMv(borderLinePattern(a, b)).status).toBe(status);
+  });
+
+  it("agrees with checkLocalFlatFoldability: an assignment satisfies the clauses iff the report is clean", () => {
+    for (const a of ["M", "V"] as const) {
+      for (const b of ["M", "V"] as const) {
+        const cp = borderLinePattern(a, b);
+        const report = checkLocalFlatFoldability(cp);
+        const clean = Object.values(report).every((list) => list.length === 0);
+        expect(satisfies(localMvClauses(cp), assignmentFromPattern(cp))).toBe(clean);
+        expect(report.borderBigLittleBig).toEqual(a === b ? [P] : []);
+      }
+    }
+  });
+
+  it("leaves an unassigned pair out of the report, since nothing is known yet", () => {
+    expect(checkLocalFlatFoldability(unset).borderBigLittleBig).toEqual([]);
+  });
+});
+
+describe("degree-4 assignment counts (Lang §1.4, Thm 7, Figs. 1.27–1.29)", () => {
+  /** How many mountain/valley assignments the clauses allow at the single vertex of a spoke pattern. */
+  const countAssignments = (spokes: number[]) =>
+    [...mvSolutions(localMvClauses(spokePattern(spokes, "U")))].length;
+
+  it("allows 4 when one sector is strictly smallest (60°, 90°, 120°, 90°)", () => {
+    // The two creases bounding the 60° sector must differ and the other two agree with the
+    // majority: the minority is one of the two bounding creases, mountain or valley.
+    expect(countAssignments([0, 2, 5, 9])).toBe(4);
+  });
+
+  it("allows 6 for the symmetric bird's-foot (60°, 60°, 120°, 120°)", () => {
+    expect(countAssignments([0, 2, 4, 8])).toBe(6);
+  });
+
+  it("allows 8 when every sector is a right angle: every Maekawa assignment", () => {
+    expect(countAssignments([0, 3, 6, 9])).toBe(8);
   });
 });

@@ -32,6 +32,8 @@ describe("hexagonTwist", () => {
       maekawa: [],
       unassigned: [],
       bigLittleBig: [],
+      borderBigLittleBig: [],
+      singleVertex: [],
     });
     const interior = interiorVertices(cp).map((v) => cp.vertices[v]!);
     expect(interior).toHaveLength(6);
@@ -47,6 +49,8 @@ describe("hexagonTwist", () => {
           maekawa: [],
           unassigned: [],
           bigLittleBig: [],
+          borderBigLittleBig: [],
+          singleVertex: [],
         });
         const interior = interiorVertices(cp).map((v) => cp.vertices[v]!);
         expect(interior).toHaveLength(6);

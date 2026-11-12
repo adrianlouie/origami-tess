@@ -94,6 +94,8 @@ describe.each(cases())("$name", ({ creases, cp, vertices }) => {
       maekawa: [],
       unassigned: [],
       bigLittleBig: [],
+      borderBigLittleBig: [],
+      singleVertex: [],
     });
   });
 

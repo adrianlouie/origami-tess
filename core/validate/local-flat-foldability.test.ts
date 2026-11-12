@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import { RENDER_TOLERANCE, toCartesian } from "../../app/render/cartesian";
-import { conj, eis, mul, rot60, type Eisenstein } from "../lattice/eisenstein";
-import { compareAngle, cross } from "../lattice/direction";
+import { conj, eis, mul, neg, rot60, type Eisenstein } from "../lattice/eisenstein";
+import { compareAngle, completeDegree4, cross, primitive } from "../lattice/direction";
 import { hexDistance, triangularGrid } from "../lattice/grid";
 import { creasePattern, fromSegments, type Assignment } from "../pattern/crease-pattern";
-import { bigLittleBigFlat } from "./big-little-big";
+import { spokePattern } from "../solve/testing";
+import { bigLittleBigFlat, singleVertexFlat } from "./big-little-big";
+import { allAssignments, candidates, foldsFlat, POOL, subsets as subsetsOf } from "./testing";
 import {
   checkLocalFlatFoldability,
   interiorVertices,
@@ -226,6 +228,35 @@ describe("checkLocalFlatFoldability", () => {
       maekawa: [],
       unassigned: [],
       bigLittleBig: [],
+      borderBigLittleBig: [],
+      singleVertex: [],
+    });
+  });
+
+  it("flags a degree-6 vertex that passes Maekawa and Big-Little-Big but cannot fold (Hull)", () => {
+    // Search the 30° spokes for a Kawasaki vertex and an assignment only Hull's reduction rejects.
+    let found: { spokes: number[]; assigns: ("M" | "V")[] } | undefined;
+    for (const spokes of subsetsOf(12, 6)) {
+      const dirs = spokes.map((i) => POOL[i]!);
+      if (!kawasakiFlat(dirs)) continue;
+      const assigns = allAssignments(6).find(
+        (a) => maekawaFlat(a) && bigLittleBigFlat(dirs, a) && !singleVertexFlat(dirs, a),
+      );
+      if (assigns) {
+        found = { spokes, assigns };
+        break;
+      }
+    }
+    expect(found).toBeDefined();
+    const cp = spokePattern(found!.spokes, found!.assigns);
+    const origin = cp.vertices.findIndex((z) => z.a === 0 && z.b === 0);
+    expect(checkLocalFlatFoldability(cp)).toEqual({
+      kawasaki: [],
+      maekawa: [],
+      unassigned: [],
+      bigLittleBig: [],
+      borderBigLittleBig: [],
+      singleVertex: [origin],
     });
   });
 
@@ -236,6 +267,8 @@ describe("checkLocalFlatFoldability", () => {
       maekawa: [0],
       unassigned: [],
       bigLittleBig: [],
+      borderBigLittleBig: [],
+      singleVertex: [],
     });
   });
 
@@ -258,6 +291,8 @@ describe("checkLocalFlatFoldability", () => {
       maekawa: [],
       unassigned: [],
       bigLittleBig: [],
+      borderBigLittleBig: [],
+      singleVertex: [],
     });
   });
 
@@ -275,6 +310,8 @@ describe("checkLocalFlatFoldability", () => {
       maekawa: [],
       unassigned: [],
       bigLittleBig: [0],
+      borderBigLittleBig: [],
+      singleVertex: [],
     });
   });
 
@@ -298,6 +335,8 @@ describe("checkLocalFlatFoldability", () => {
       maekawa: [],
       unassigned: [],
       bigLittleBig: [],
+      borderBigLittleBig: [],
+      singleVertex: [],
     });
   });
 });
@@ -331,6 +370,8 @@ describe("audit regressions (step 3.7)", () => {
       maekawa: [],
       unassigned: [],
       bigLittleBig: [],
+      borderBigLittleBig: [],
+      singleVertex: [],
     });
   });
 
@@ -348,5 +389,65 @@ describe("audit regressions (step 3.7)", () => {
       expect(bigLittleBigFlat(ds, a)).toBe(bigLittleBigFlat(base, a));
     }
     expect(kawasakiFlat(ds)).toBe(kawasakiFlat(base));
+  });
+});
+
+describe("Theorem 9 (Lang, p. 41): half-planes at a flat-foldable degree-4 vertex", () => {
+  it("holds a majority crease in every closed half-plane bounded by a lattice line through it", () => {
+    let vertices = 0;
+    let openFailures = 0;
+    for (const { dirs, assigns } of candidates(4)) {
+      if (!foldsFlat(dirs, assigns)) continue;
+      vertices++;
+      // Three of one assignment and one of the other: the majority is the three.
+      const majority = assigns.filter((a) => a === "M").length === 3 ? "M" : "V";
+      for (const line of POOL) {
+        for (const side of [line, neg(line)]) {
+          // The creases on the left of the directed line, or on it, are the closed half-plane.
+          const closed = dirs.some((r, i) => assigns[i] === majority && cross(side, r) >= 0);
+          expect(closed).toBe(true);
+          if (!dirs.some((r, i) => assigns[i] === majority && cross(side, r) > 0)) openFailures++;
+        }
+      }
+    }
+    expect(vertices).toBeGreaterThan(0);
+    // The half-plane must be closed: with the boundary left out a crease on it can be the only
+    // majority one (the right vertex M, M, M, V has none in the open lower half-plane).
+    expect(openFailures).toBeGreaterThan(0);
+  });
+});
+
+describe("completeDegree4 builds Kawasaki vertices by construction (Lang §1.4.4)", () => {
+  const triples = subsetsOf(POOL.length, 3).map((idx) => idx.map((i) => POOL[i]!));
+
+  it("gives a fourth crease that satisfies Kawasaki for every counter-clockwise triple", () => {
+    let completed = 0;
+    for (const [d1, d2, d3] of triples) {
+      const d4 = completeDegree4(d1!, d2!, d3!);
+      if (d4 === null) continue;
+      completed++;
+      expect(kawasakiFlat([d1!, d2!, d3!, d4])).toBe(true);
+    }
+    expect(completed).toBeGreaterThan(0);
+  });
+
+  it("finds every Kawasaki vertex of degree 4 from the 30° directions, from any three of its rays", () => {
+    const vertices = subsetsOf(POOL.length, 4)
+      .map((idx) => idx.map((i) => POOL[i]!))
+      .filter((dirs) => kawasakiFlat(dirs));
+    expect(vertices.length).toBeGreaterThan(0);
+    for (const dirs of vertices) {
+      for (let omit = 0; omit < 4; omit++) {
+        // Rotate so the omitted ray is last, keeping the counter-clockwise order.
+        const rotated = [...dirs.slice(omit + 1), ...dirs.slice(0, omit + 1)];
+        const [a, b, c, d] = rotated as [Eisenstein, Eisenstein, Eisenstein, Eisenstein];
+        expect(completeDegree4(a, b, c)).toEqual(primitive(d));
+      }
+    }
+    // The triples above are sorted by angle, not rotated, so a vertex is reached only from the two
+    // triples that omit its first or its last ray (the fourth must lie between the third and the
+    // first, going round through 360°), and no other triple completes.
+    const completed = triples.filter(([d1, d2, d3]) => completeDegree4(d1!, d2!, d3!) !== null);
+    expect(completed).toHaveLength(2 * vertices.length);
   });
 });

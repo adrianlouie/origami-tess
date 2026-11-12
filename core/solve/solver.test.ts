@@ -78,7 +78,14 @@ describe.each(gadgets)("$name", ({ creases }) => {
     if (result.status !== "sat") return;
     const solved = withMvAssignment(cp, result.assignment);
     const report = checkLocalFlatFoldability(solved);
-    expect(report).toEqual({ kawasaki: [], maekawa: [], unassigned: [], bigLittleBig: [] });
+    expect(report).toEqual({
+      kawasaki: [],
+      maekawa: [],
+      unassigned: [],
+      bigLittleBig: [],
+      borderBigLittleBig: [],
+      singleVertex: [],
+    });
     expect(interiorVertices(solved).length).toBeGreaterThan(0);
   });
 
