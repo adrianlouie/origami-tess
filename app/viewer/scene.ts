@@ -3,8 +3,8 @@
  *
  * Render end of the data flow (… → render). It builds scene objects only, with no renderer, so it
  * runs in Node and is tested there; `main.ts` owns the WebGL renderer and the browser events. The
- * paper mesh and every crease line share one position buffer, so a fold simulation (6.2) can move
- * the vertices by updating that one attribute.
+ * paper mesh and every crease line share one position buffer, so the fold simulation moves the
+ * vertices by updating that one attribute ({@link updateSheet}).
  */
 
 import * as THREE from "three";
@@ -75,6 +75,34 @@ export function buildScene(cp: CreasePattern): THREE.Scene {
   sun.position.set(-1, -2, 3);
   scene.add(sun);
   return scene;
+}
+
+/**
+ * Moves the sheet and its crease lines to simulated positions.
+ *
+ * Copies into the shared position attribute (float64 to float32), flags it for upload, and
+ * recomputes the paper's normals and the bounding spheres: three culls by bounding sphere, and the
+ * flat one would hide a sheet that has folded away from it.
+ *
+ * @param scene - a scene from {@link buildScene}
+ * @param positions - x, y, z per node, in the sheet's node order (`RelaxState.positions`)
+ * @throws RangeError if `positions` is not the length of the sheet's position buffer
+ */
+export function updateSheet(scene: THREE.Scene, positions: Float64Array): void {
+  const sheet = scene.getObjectByName("sheet");
+  if (!(sheet instanceof THREE.Mesh)) throw new Error("scene has no sheet mesh");
+  const attribute = sheet.geometry.getAttribute("position") as THREE.BufferAttribute;
+  if (positions.length !== attribute.array.length) {
+    throw new RangeError("positions must have 3 numbers per sheet vertex");
+  }
+  (attribute.array as Float32Array).set(positions);
+  attribute.needsUpdate = true;
+  sheet.geometry.computeVertexNormals();
+  scene.traverse((o) => {
+    if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
+      o.geometry.computeBoundingSphere();
+    }
+  });
 }
 
 /**

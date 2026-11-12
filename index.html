@@ -17,6 +17,10 @@
         left: 8px;
         display: flex;
         gap: 8px;
+        align-items: center;
+      }
+      #fold {
+        width: 160px;
       }
       #view {
         width: 100%;
@@ -31,6 +35,8 @@
     <div id="bar">
       <select id="gadget" aria-label="Gadget"></select>
       <button id="reset" type="button">Reset view</button>
+      <input id="fold" type="range" min="0" max="100" value="0" aria-label="Fold percentage" />
+      <output id="readout" for="fold">fold 0 %</output>
     </div>
     <script type="module" src="/app/viewer/main.ts"></script>
   </body>

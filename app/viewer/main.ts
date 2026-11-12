@@ -2,15 +2,35 @@
  * Browser entry for the 3D viewer: WebGL renderer, pointer events and the gadget picker.
  *
  * The last stop of the data flow, and the only file that touches the DOM. All maths lives in
- * `camera-rig.ts` and `input.ts`; this file only forwards events and redraws when something
- * changed, so there is no animation loop.
+ * `camera-rig.ts`, `input.ts` and `fold-driver.ts`; this file only forwards events and redraws when
+ * something changed. The one animation loop runs only while the fold simulation is settling, and
+ * stops as soon as the driver is done, so an idle page does no work.
+ *
+ * URL parameters, for screenshots: `?gadget=<index>` and `?fold=<percent>`.
  */
 
 import * as THREE from "three";
 import { fitRig, type Rig } from "./camera-rig";
+import {
+  foldDriver,
+  parseFoldParam,
+  parseGadgetParam,
+  setTarget,
+  settle,
+  tick,
+  type FoldDriver,
+} from "./fold-driver";
 import { GADGET_ENTRIES } from "./gadgets";
 import { pointerToRig } from "./input";
-import { applyRig, buildScene } from "./scene";
+import { applyRig, buildScene, updateSheet } from "./scene";
+
+/** Wall-clock time one frame may spend relaxing, in milliseconds. */
+const FRAME_BUDGET_MS = 10;
+/** Relaxation steps per frame: start here, then scale to hit the budget within these limits. */
+const MIN_STEPS = 100;
+const MAX_STEPS = 5000;
+/** Most ticks a `?fold=` deep link may spend settling before the page gives up and animates. */
+const DEEP_LINK_TICKS = 400;
 
 const FOV_DEGREES = 40;
 const fovY = THREE.MathUtils.degToRad(FOV_DEGREES);
@@ -18,7 +38,10 @@ const fovY = THREE.MathUtils.degToRad(FOV_DEGREES);
 const canvas = document.querySelector<HTMLCanvasElement>("#view");
 const picker = document.querySelector<HTMLSelectElement>("#gadget");
 const reset = document.querySelector<HTMLButtonElement>("#reset");
-if (!canvas || !picker || !reset) throw new Error("index.html is missing the viewer elements");
+const slider = document.querySelector<HTMLInputElement>("#fold");
+const readout = document.querySelector<HTMLOutputElement>("#readout");
+if (!canvas || !picker || !reset || !slider || !readout)
+  throw new Error("index.html is missing the viewer elements");
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setClearColor(0xf3f4f6);
@@ -27,6 +50,9 @@ const camera = new THREE.PerspectiveCamera(FOV_DEGREES, 1);
 let scene = new THREE.Scene();
 let rig: Rig | undefined;
 let home: Rig | undefined;
+let driver: FoldDriver | undefined;
+let steps = MIN_STEPS;
+let frame = 0;
 
 function draw(): void {
   if (!rig) return;
@@ -34,23 +60,61 @@ function draw(): void {
   renderer.render(scene, camera);
 }
 
+function showReadout(): void {
+  if (!driver) return;
+  const percent = Math.round(driver.fold * 100);
+  readout!.textContent = driver.done ? `fold ${percent} %` : `fold ${percent} % (settling)`;
+}
+
+/** One animation frame: relax within the time budget, show the result, and stop when done. */
+function animate(): void {
+  frame = 0;
+  if (!driver || driver.done) return;
+  const start = performance.now();
+  driver = tick(driver, steps);
+  const spent = Math.max(performance.now() - start, 0.1);
+  steps = Math.round(Math.min(MAX_STEPS, Math.max(MIN_STEPS, (steps * FRAME_BUDGET_MS) / spent)));
+  updateSheet(scene, driver.state.positions);
+  showReadout();
+  draw();
+  if (!driver.done) frame = requestAnimationFrame(animate);
+}
+
+/** Starts the loop if it is not already running. */
+function wake(): void {
+  if (frame === 0 && driver && !driver.done) frame = requestAnimationFrame(animate);
+}
+
 function size(): { width: number; height: number } {
   const { clientWidth: width, clientHeight: height } = canvas!;
   return { width: Math.max(width, 1), height: Math.max(height, 1) };
 }
 
-function load(index: number): void {
+function load(index: number, foldPercent = 0, instant = false): void {
   const entry = GADGET_ENTRIES[index];
   if (!entry) return;
+  cancelAnimationFrame(frame);
+  frame = 0;
   scene.traverse((o) => {
     if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) o.geometry.dispose();
   });
-  scene = buildScene(entry.build());
+  const cp = entry.build();
+  scene = buildScene(cp);
+  driver = foldDriver(cp);
+  steps = MIN_STEPS;
+  slider!.value = String(foldPercent);
+  driver = setTarget(driver, foldPercent / 100);
+  if (instant) {
+    driver = settle(driver, MAX_STEPS, DEEP_LINK_TICKS);
+    updateSheet(scene, driver.state.positions);
+  }
+  showReadout();
   const box = new THREE.Box3().setFromObject(scene.getObjectByName("sheet")!);
   const { width, height } = size();
   home = fitRig({ min: box.min.toArray(), max: box.max.toArray() }, fovY, width / height);
   rig = home;
   draw();
+  wake();
 }
 
 function resize(): void {
@@ -63,6 +127,12 @@ function resize(): void {
 
 picker.append(...GADGET_ENTRIES.map((e, i) => new Option(e.name, String(i))));
 picker.addEventListener("change", () => load(Number(picker.value)));
+slider.addEventListener("input", () => {
+  if (!driver) return;
+  driver = setTarget(driver, Number(slider.value) / 100);
+  showReadout();
+  wake();
+});
 reset.addEventListener("click", () => {
   rig = home;
   draw();
@@ -104,5 +174,8 @@ canvas.addEventListener(
   { passive: false },
 );
 
+const params = new URLSearchParams(window.location.search);
+const first = parseGadgetParam(params.get("gadget"), GADGET_ENTRIES.length);
+picker.value = String(first);
 resize();
-load(0);
+load(first, Math.round(parseFoldParam(params.get("fold")) * 100), true);
