@@ -3,12 +3,21 @@ import { hexagonTwist } from "../../core/gadgets/hexagon-twist";
 import { starTwist } from "../../core/gadgets/star-twist";
 import { toCartesian } from "../../core/simulate/embed";
 import { foldSteps } from "../../core/pattern/fold-steps";
-import { CREASE_STYLE } from "../render/crease-style";
+import { CREASE_STYLE } from "./crease-style";
 import { HIGHLIGHT_GRID_COLOR, stepCaption, stepHighlight } from "./step-text";
 
 const steps = foldSteps(starTwist(1, "full"));
 
 describe("stepCaption", () => {
+  it("print captions drop the viewer-only slider hint and keep everything else", () => {
+    const last = steps.length - 1;
+    expect(stepCaption(steps, last)).toMatch(/slider/);
+    expect(stepCaption(steps, last, "print")).not.toMatch(/slider/);
+    expect(stepCaption(steps, last, "print")).toMatch(/^Step \d+ of \d+: Collapse\./);
+    for (let i = 0; i < last; i++)
+      expect(stepCaption(steps, i, "print")).toBe(stepCaption(steps, i));
+  });
+
   it("numbers every step out of the total and ends with the collapse", () => {
     steps.forEach((_, i) => {
       expect(stepCaption(steps, i).startsWith(`Step ${i + 1} of ${steps.length}: `)).toBe(true);

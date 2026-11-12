@@ -4,6 +4,40 @@ import { extentOf, fitToPage, PAGE_SIZES } from "./page";
 
 const box = (w: number, h: number) => ({ minX: 0, minY: 0, maxX: w, maxY: h });
 
+describe("fitToPage reserveTop", () => {
+  it("keeps the drawing below the reserved band and inside the margins (property)", () => {
+    fc.assert(
+      fc.property(
+        fc.double({ min: 0.1, max: 50, noNaN: true }),
+        fc.double({ min: 0.1, max: 50, noNaN: true }),
+        fc.double({ min: 0, max: 200, noNaN: true }),
+        fc.constantFrom("a4", "letter"),
+        fc.constantFrom("auto", "portrait", "landscape"),
+        (w, h, band, page, orientation) => {
+          const f = fitToPage(box(w, h), page, 36, orientation, band);
+          expect(f.offsetY).toBeGreaterThanOrEqual(36 - 1e-9);
+          expect(h * f.scale + f.offsetY).toBeLessThanOrEqual(f.height - 36 - band + 1e-9);
+          expect(f.offsetX).toBeGreaterThanOrEqual(36 - 1e-9);
+          expect(w * f.scale + f.offsetX).toBeLessThanOrEqual(f.width - 36 + 1e-9);
+        },
+      ),
+    );
+  });
+
+  it("is the old behaviour at zero and shrinks the drawing otherwise", () => {
+    const e = box(4, 6);
+    expect(fitToPage(e, "a4", 36, "portrait", 0)).toEqual(fitToPage(e, "a4", 36, "portrait"));
+    expect(fitToPage(e, "a4", 36, "portrait", 100).scale).toBeLessThan(
+      fitToPage(e, "a4", 36, "portrait").scale,
+    );
+  });
+
+  it("rejects a band that leaves no room", () => {
+    expect(() => fitToPage(box(1, 1), "a4", 36, "portrait", -1)).toThrow(RangeError);
+    expect(() => fitToPage(box(1, 1), "a4", 36, "portrait", 10_000)).toThrow(RangeError);
+  });
+});
+
 describe("fitToPage", () => {
   it("uses one uniform scale and keeps the drawing inside the margins (property)", () => {
     fc.assert(

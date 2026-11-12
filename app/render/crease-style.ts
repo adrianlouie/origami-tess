@@ -27,6 +27,9 @@ export const CREASE_STYLE: Readonly<Record<Assignment, CreaseStyle>> = {
   U: { color: 0x6b7280, width: 1, dash: [0, 3] },
 };
 
+/** The rest of the pattern behind a highlighted step: thin, pale and solid, so the step stands out. */
+export const FAINT_STYLE: CreaseStyle = { color: 0xd1d5db, width: 0.5, dash: [] };
+
 /** Drawing order for exports: faint lines first so the folds lie on top. */
 export const DRAW_ORDER: readonly Assignment[] = ["F", "U", "B", "V", "M"];
 

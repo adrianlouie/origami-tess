@@ -6,7 +6,7 @@
  * something changed. The one animation loop runs only while the fold simulation is settling, and
  * stops as soon as the driver is done, so an idle page does no work.
  *
- * The export buttons download the selected gadget's flat crease pattern (`app/export/download.ts`).
+ * The export buttons download the selected gadget's flat crease pattern or its folding steps (`app/export/download.ts`).
  *
  * URL parameters, for screenshots: `?gadget=<index>` and `?fold=<percent>`.
  */
@@ -31,7 +31,7 @@ import { GADGET_ENTRIES } from "./gadgets";
 import { pointerToRig } from "./input";
 import { applyRig, buildScene, setPaperColor, setStepHighlight, updateSheet } from "./scene";
 import { foldSteps, type FoldStep } from "../../core/pattern/fold-steps";
-import { stepCaption, stepHighlight } from "./step-text";
+import { stepCaption, stepHighlight } from "../render/step-text";
 
 /** Wall-clock time one frame may spend relaxing, in milliseconds. */
 const FRAME_BUDGET_MS = 10;
@@ -51,6 +51,8 @@ const slider = document.querySelector<HTMLInputElement>("#fold");
 const readout = document.querySelector<HTMLOutputElement>("#readout");
 const exportSvg = document.querySelector<HTMLButtonElement>("#export-svg");
 const exportPdf = document.querySelector<HTMLButtonElement>("#export-pdf");
+const exportStepsSvg = document.querySelector<HTMLButtonElement>("#export-steps-svg");
+const exportStepsPdf = document.querySelector<HTMLButtonElement>("#export-steps-pdf");
 const pageSize = document.querySelector<HTMLSelectElement>("#page");
 const paperFront = document.querySelector<HTMLInputElement>("#paper-front");
 const paperBack = document.querySelector<HTMLInputElement>("#paper-back");
@@ -65,6 +67,8 @@ if (
   !readout ||
   !exportSvg ||
   !exportPdf ||
+  !exportStepsSvg ||
+  !exportStepsPdf ||
   !pageSize ||
   !paperFront ||
   !paperBack ||
@@ -236,7 +240,7 @@ reset.addEventListener("click", () => {
   draw();
 });
 
-/** Downloads the selected gadget's flat crease pattern in the given format. */
+/** Downloads the selected gadget's flat crease pattern or its folding steps in the given format. */
 function download(kind: ExportKind): void {
   if (!current) return;
   const file = exportFile(current.cp, current.name, kind, pageSize!.value as PageName);
@@ -249,6 +253,8 @@ function download(kind: ExportKind): void {
 }
 exportSvg.addEventListener("click", () => download("svg"));
 exportPdf.addEventListener("click", () => download("pdf"));
+exportStepsSvg.addEventListener("click", () => download("steps-svg"));
+exportStepsPdf.addEventListener("click", () => download("steps-pdf"));
 window.addEventListener("resize", resize);
 
 let last: { x: number; y: number } | null = null;
