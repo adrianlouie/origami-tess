@@ -31,3 +31,5 @@ Terms the code and comments use. CLAUDE.md lists the four basic ones (crease pat
 **Supercritical twist** — α above αcrit (`twistRegime`, `core/gadgets/twist-limits.ts`): neighbouring pleats would cross inside the polygon, so a cyclic assignment folds only where the paper ends early. The triangle twist (α = 60°, αcrit = 30°) is one; the hexagon twist (α = αcrit = 60°) is closed-back.
 
 **Necklace** — a cyclic word counted up to rotation. The pleat orientations of an n-gon twist form N(n) = (1/n) Σ_{d|n} 2^d φ(n/d) necklaces (`necklaceCount`, Lang Eq. 3.1); `canonicalRotation` gives each one a key.
+
+**Accordion** — a strip with alternating mountain and valley creases, so its facets stack in order. It folds whatever the widths (Lang §2.6). **End fold** — a flap folded over its neighbour by two creases of one assignment; it fits when the flap is no wider than the facet it lies on. **Spiral** — a strip with one assignment throughout and widths that do not grow; each turn nests inside the last. Tested with `parallelStrip` and the exact 1D oracle `stripFoldsFlat` in `core/solve/testing.ts`.
