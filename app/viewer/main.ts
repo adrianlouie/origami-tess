@@ -29,7 +29,7 @@ import type { PageName } from "../export/page";
 import type { CreasePattern } from "../../core/pattern/crease-pattern";
 import { GADGET_ENTRIES } from "./gadgets";
 import { pointerToRig } from "./input";
-import { applyRig, buildScene, updateSheet } from "./scene";
+import { applyRig, buildScene, setPaperColor, updateSheet } from "./scene";
 
 /** Wall-clock time one frame may spend relaxing, in milliseconds. */
 const FRAME_BUDGET_MS = 10;
@@ -50,7 +50,20 @@ const readout = document.querySelector<HTMLOutputElement>("#readout");
 const exportSvg = document.querySelector<HTMLButtonElement>("#export-svg");
 const exportPdf = document.querySelector<HTMLButtonElement>("#export-pdf");
 const pageSize = document.querySelector<HTMLSelectElement>("#page");
-if (!canvas || !picker || !reset || !slider || !readout || !exportSvg || !exportPdf || !pageSize)
+const paperFront = document.querySelector<HTMLInputElement>("#paper-front");
+const paperBack = document.querySelector<HTMLInputElement>("#paper-back");
+if (
+  !canvas ||
+  !picker ||
+  !reset ||
+  !slider ||
+  !readout ||
+  !exportSvg ||
+  !exportPdf ||
+  !pageSize ||
+  !paperFront ||
+  !paperBack
+)
   throw new Error("index.html is missing the viewer elements");
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -120,6 +133,7 @@ function load(index: number, foldPercent = 0, instant = false): void {
   frame = 0;
   scene.traverse((o) => {
     if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
+      // The front and back paper meshes share a geometry; disposing it twice is harmless.
       o.geometry.dispose();
       for (const material of Array.isArray(o.material) ? o.material : [o.material]) {
         material.dispose();
@@ -128,7 +142,10 @@ function load(index: number, foldPercent = 0, instant = false): void {
   });
   const cp = entry.build();
   current = { name: entry.name, cp };
-  scene = buildScene(cp);
+  scene = buildScene(cp, {
+    front: parseInt(paperFront!.value.slice(1), 16),
+    back: parseInt(paperBack!.value.slice(1), 16),
+  });
   driver = foldDriver(cp);
   steps = MIN_STEPS;
   slider!.value = String(foldPercent);
@@ -166,6 +183,15 @@ slider.addEventListener("input", () => {
   showReadout();
   wake();
 });
+for (const [input, side] of [
+  [paperFront, "front"],
+  [paperBack, "back"],
+] as const) {
+  input.addEventListener("input", () => {
+    setPaperColor(scene, side, input.value);
+    draw();
+  });
+}
 reset.addEventListener("click", () => {
   rig = home;
   draw();

@@ -23,6 +23,40 @@ export const CREASE_COLORS: Readonly<Record<Assignment, number>> = {
   U: CREASE_STYLE.U.color,
 };
 
+/** A side of the paper: the front faces +z while the sheet is flat. */
+export type PaperSide = "front" | "back";
+
+/** Default paper colours; the back differs so that a fold shows without touching a picker. */
+export const PAPER_COLORS: Readonly<Record<PaperSide, number>> = {
+  front: 0xf5ecd7,
+  back: 0x8fa9c4,
+};
+
+/** Mesh name for each paper side. */
+const PAPER_MESHES: readonly (readonly [string, PaperSide])[] = [
+  ["sheet", "front"],
+  ["sheet-back", "back"],
+];
+
+/**
+ * Sets the colour of one side of the paper.
+ *
+ * @param scene - a scene from {@link buildScene}
+ * @param side - which side to recolour; the other is untouched
+ * @param color - anything `THREE.Color` accepts, such as a colour input's `#rrggbb`
+ * @throws Error if the scene has no paper mesh for that side
+ */
+export function setPaperColor(
+  scene: THREE.Scene,
+  side: PaperSide,
+  color: THREE.ColorRepresentation,
+): void {
+  const name = PAPER_MESHES.find(([, s]) => s === side)![0];
+  const mesh = scene.getObjectByName(name);
+  if (!(mesh instanceof THREE.Mesh)) throw new Error(`scene has no ${name} mesh`);
+  (mesh.material as THREE.MeshStandardMaterial).color.set(color);
+}
+
 /** Writes the endpoints of each vertex pair, two positions per segment, into a non-indexed geometry. */
 function copyPairs(
   geometry: THREE.BufferGeometry,
@@ -42,15 +76,20 @@ function copyPairs(
 /**
  * Builds the scene for a crease pattern lying flat at z = 0.
  *
- * Contains a double-sided mesh named "sheet", one `LineSegments` named `creases-<A>` for each
- * assignment that occurs, and two lights. The mesh is pushed back with a polygon offset so the lines
- * drawn at the same depth are not hidden by it.
+ * Contains the paper as two meshes over one geometry, "sheet" (front, the side that faces +z while
+ * flat, since the triangles are counter-clockwise) and "sheet-back", one `LineSegments` named
+ * `creases-<A>` for each assignment that occurs, and two lights. The paper is pushed back with a
+ * polygon offset so the lines drawn at the same depth are not hidden by it.
  *
  * @param cp - the crease pattern
+ * @param colors - front and back paper colours (0xRRGGBB); default {@link PAPER_COLORS}
  * @returns a scene whose sheet and crease lines reuse a single position attribute
  * @throws RangeError if the pattern has a face with a hole (see {@link sheetGeometry})
  */
-export function buildScene(cp: CreasePattern): THREE.Scene {
+export function buildScene(
+  cp: CreasePattern,
+  colors: Readonly<Record<PaperSide, number>> = PAPER_COLORS,
+): THREE.Scene {
   const sheet = sheetGeometry(cp);
   const scene = new THREE.Scene();
   const position = new THREE.BufferAttribute(sheet.positions, 3);
@@ -58,21 +97,26 @@ export function buildScene(cp: CreasePattern): THREE.Scene {
   const paper = new THREE.BufferGeometry();
   paper.setAttribute("position", position);
   paper.setIndex(new THREE.BufferAttribute(sheet.triangles, 1));
-  const mesh = new THREE.Mesh(
-    paper,
-    new THREE.MeshStandardMaterial({
-      color: 0xf5ecd7,
-      side: THREE.DoubleSide,
-      // Per-triangle normals from screen-space derivatives: a crease reads as a sharp edge, and no
-      // normal attribute has to be recomputed on every simulation frame.
-      flatShading: true,
-      polygonOffset: true,
-      polygonOffsetFactor: 1,
-      polygonOffsetUnits: 1,
-    }),
-  );
-  mesh.name = "sheet";
-  scene.add(mesh);
+  // Two meshes over one geometry, one per side: a triangle is drawn once from either view, so the
+  // front and back cannot z-fight, and the single position update in `updateSheet` moves both.
+  for (const [name, side] of PAPER_MESHES) {
+    const mesh = new THREE.Mesh(
+      paper,
+      new THREE.MeshStandardMaterial({
+        color: colors[side],
+        side: side === "front" ? THREE.FrontSide : THREE.BackSide,
+        // Per-triangle normals from screen-space derivatives: a crease reads as a sharp edge, and no
+        // normal attribute has to be recomputed on every simulation frame. They face the camera,
+        // so the back mesh is lit correctly without flipping anything.
+        flatShading: true,
+        polygonOffset: true,
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1,
+      }),
+    );
+    mesh.name = name;
+    scene.add(mesh);
+  }
 
   for (const a of ASSIGNMENTS) {
     const pairs = sheet.creases[a];
@@ -117,7 +161,8 @@ export function buildScene(cp: CreasePattern): THREE.Scene {
  * Copies into the shared position attribute (float64 to float32), flags it for upload, and
  * recomputes what is derived from the positions: the bounding spheres and boxes (three culls by
  * bounding sphere, and the flat one would hide a sheet that has folded away from it) and the dash
- * distances of dashed crease lines. The paper is flat shaded, so it has no normals to refresh.
+ * distances of dashed crease lines. The paper is flat shaded, so it has no normals to refresh. The
+ * back mesh shares the sheet's geometry, so it moves with it.
  *
  * @param scene - a scene from {@link buildScene}
  * @param positions - x, y, z per node, in the sheet's node order (`RelaxState.positions`)
