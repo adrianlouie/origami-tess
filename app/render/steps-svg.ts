@@ -32,8 +32,19 @@ const NUMBER_WIDTH = 28;
 const TITLE_HEIGHT = 36;
 const FAMILY = "Helvetica, Arial, sans-serif";
 
-/** Escapes the characters that are special in XML text and attribute values. */
+/**
+ * Escapes the characters that are special in XML text and attribute values.
+ *
+ * @throws RangeError for a control character other than tab, newline and carriage return, which
+ *   XML 1.0 (§2.2 `Char`) does not allow even escaped, so the sheet would not parse
+ */
 function xml(text: string): string {
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    const legal =
+      c === 0x9 || c === 0xa || c === 0xd || (c >= 0x20 && c !== 0xfffe && c !== 0xffff);
+    if (!legal) throw new RangeError("Text contains a character XML 1.0 cannot hold");
+  }
   return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -91,7 +102,7 @@ export function foldStepsToSvg(
       inner - NUMBER_WIDTH,
     ),
   );
-  const captionH = Math.max(...captions.map((c) => c.length), 1) * LEADING + 8;
+  const captionH = captions.reduce((m, c) => Math.max(m, c.length), 1) * LEADING + 8;
   const cellH = pad + captionH + drawH + pad;
 
   const layerElement = (layer: Layer, ox: number, oy: number): string[] => {

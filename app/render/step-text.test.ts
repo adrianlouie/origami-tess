@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { hexagonFrame } from "../../core/gadgets/crease";
 import { hexagonTwist } from "../../core/gadgets/hexagon-twist";
 import { starTwist } from "../../core/gadgets/star-twist";
+import { eis } from "../../core/lattice/eisenstein";
+import { fromSegments } from "../../core/pattern/crease-pattern";
 import { toCartesian } from "../../core/simulate/embed";
 import { foldSteps } from "../../core/pattern/fold-steps";
 import { CREASE_STYLE } from "./crease-style";
@@ -8,10 +11,35 @@ import { HIGHLIGHT_GRID_COLOR, stepCaption, stepHighlight } from "./step-text";
 
 const steps = foldSteps(starTwist(1, "full"));
 
+describe("stepCaption on one-assignment patterns", () => {
+  const ray = (assignment: "M" | "V") =>
+    foldSteps(
+      fromSegments(
+        [],
+        [
+          ...hexagonFrame(2),
+          { from: eis(0, 0), to: eis(1, 0), assignment },
+          { from: eis(1, 0), to: eis(2, 0), assignment },
+        ],
+      ),
+    );
+
+  it("turns the paper over for the first mountain step", () => {
+    expect(stepCaption(ray("M"), 3)).toMatch(/Turn the paper over/);
+  });
+
+  it("never turns the paper over when there is no mountain", () => {
+    const only = ray("V");
+    only.forEach((_, i) => expect(stepCaption(only, i)).not.toMatch(/Turn the paper over/));
+  });
+});
+
 describe("stepCaption", () => {
   it("print captions drop the viewer-only slider hint and keep everything else", () => {
     const last = steps.length - 1;
     expect(stepCaption(steps, last)).toMatch(/slider/);
+    // The viewer already plays the collapse, so it must not ask the user to start it.
+    expect(stepCaption(steps, last)).not.toMatch(/to watch/);
     expect(stepCaption(steps, last, "print")).not.toMatch(/slider/);
     expect(stepCaption(steps, last, "print")).toMatch(/^Step \d+ of \d+: Collapse\./);
     for (let i = 0; i < last; i++)

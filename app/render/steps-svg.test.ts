@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import fc from "fast-check";
 import { foldSteps } from "../../core/pattern/fold-steps";
 import { creaseLines } from "../../core/pattern/lines";
 import { GADGET_ENTRIES } from "../viewer/gadgets";
@@ -151,9 +152,52 @@ describe("foldStepsToSvg layout and options", () => {
     expect(svg).not.toContain("<B>");
   });
 
+  it("refuses control characters XML 1.0 cannot hold, even escaped", () => {
+    expect(() => foldStepsToSvg(cp, "bad\u0001name")).toThrow(RangeError);
+    expect(() => foldStepsToSvg(cp, "tab\tis fine")).not.toThrow();
+  });
+
   it("rejects bad options", () => {
     expect(() => foldStepsToSvg(cp, "x", { columns: 0 })).toThrow(RangeError);
     expect(() => foldStepsToSvg(cp, "x", { columns: 1.5 })).toThrow(RangeError);
     expect(() => foldStepsToSvg(cp, "x", { scale: -1 })).toThrow(RangeError);
+  });
+});
+
+describe("foldStepsToSvg over random options (property)", () => {
+  const cp = GADGET_ENTRIES[0]!.build();
+  const steps = foldSteps(cp);
+
+  it("draws every panel and every line inside the sheet, whatever the columns and scale", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1, max: 12 }),
+        fc.double({ min: 10, max: 120, noNaN: true }),
+        (columns, scale) => {
+          const svg = foldStepsToSvg(cp, "x", { columns, scale });
+          const box = /viewBox="([-\d.]+) ([-\d.]+) ([\d.]+) ([\d.]+)"/
+            .exec(svg)!
+            .slice(1)
+            .map(Number);
+          const [x0, y0, w, h] = box as [number, number, number, number];
+          const ps = panels(svg);
+          expect(ps).toHaveLength(steps.length);
+          for (const p of ps) {
+            for (const l of p.layers.flatMap((layer) => layer.lines)) {
+              for (const [x, y] of [
+                [l.x1, l.y1],
+                [l.x2, l.y2],
+              ] as const) {
+                expect(x + p.tx).toBeGreaterThanOrEqual(x0 - 1e-6);
+                expect(x + p.tx).toBeLessThanOrEqual(x0 + w + 1e-6);
+                expect(y + p.ty).toBeGreaterThanOrEqual(y0 - 1e-6);
+                expect(y + p.ty).toBeLessThanOrEqual(y0 + h + 1e-6);
+              }
+            }
+          }
+        },
+      ),
+      { numRuns: 30 },
+    );
   });
 });

@@ -16,6 +16,17 @@ describe("closure", () => {
     expectGroupAxioms(affineGroup, d6);
   });
 
+  it("does not depend on the order of the generators, or on redundant ones", () => {
+    const sameSet = (x: Affine[], y: Affine[]) =>
+      x.length === y.length && x.every((a) => y.some((b) => affineGroup.equals(a, b)));
+    const r = rotation60(1);
+    const s = reflection();
+    const d6 = closure(affineGroup, [r, s], 100);
+    expect(sameSet(closure(affineGroup, [s, r], 100), d6)).toBe(true);
+    // The identity, a power of r and a repeated generator add nothing.
+    expect(sameSet(closure(affineGroup, [IDENTITY, rotation60(2), s, r, r], 100), d6)).toBe(true);
+  });
+
   it("no generators gives the trivial group", () => {
     expect(closure(affineGroup, [], 10)).toEqual([IDENTITY]);
   });

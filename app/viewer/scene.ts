@@ -11,6 +11,7 @@
 import * as THREE from "three";
 import type { Assignment, CreasePattern } from "../../core/pattern/crease-pattern";
 import { CREASE_STYLE } from "../render/crease-style";
+import { HIGHLIGHT_GRID_COLOR } from "../render/step-text";
 import { clipPlanes, rigPose, type Rig } from "./camera-rig";
 import { ASSIGNMENTS, sheetGeometry } from "./sheet";
 
@@ -172,7 +173,7 @@ const HIGHLIGHT_LIFT = 0.02;
 export function setStepHighlight(
   scene: THREE.Scene,
   segments: readonly (readonly [{ x: number; y: number }, { x: number; y: number }])[] | null,
-  color = 0xe69f00,
+  color = HIGHLIGHT_GRID_COLOR,
 ): void {
   const old = scene.getObjectByName("step-highlight");
   if (old instanceof THREE.LineSegments) {

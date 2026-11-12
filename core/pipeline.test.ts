@@ -30,6 +30,7 @@ import { creaseLines } from "./pattern/lines";
 import { foldSteps } from "./pattern/fold-steps";
 import { foldStepsToPdf } from "../app/export/steps-pdf";
 import { foldStepsToSvg } from "../app/render/steps-svg";
+import { parseStepParam, stepView } from "../app/viewer/step-panel";
 import { sheetGeometry } from "../app/viewer/sheet";
 import { barHingeModel } from "./simulate/model";
 import { relax, restState } from "./simulate/relax";
@@ -159,6 +160,23 @@ describe("fold steps → step exports", () => {
       const pdf = new TextDecoder("latin1").decode(foldStepsToPdf(cp, entry.name));
       expect(pdf).toContain(`/Count ${n + 1}`);
       expect(foldStepsToSvg(cp, entry.name).match(/<g data-step="/g)).toHaveLength(n);
+    },
+  );
+});
+
+describe("fold steps → step panel", () => {
+  it.each(GADGET_ENTRIES.map((e) => [e.name, e] as const))(
+    "%s walks from no step to the collapse, and the viewer's ?step= reaches each step",
+    (_name, entry) => {
+      const steps = foldSteps(entry.build());
+      expect(stepView(steps, -1).prevDisabled).toBe(true);
+      steps.forEach((_, i) => {
+        expect(parseStepParam(String(i + 1), steps.length)).toBe(i);
+        expect(stepView(steps, i).highlight !== null || i === steps.length - 1).toBe(true);
+      });
+      const last = stepView(steps, steps.length - 1);
+      expect(last.nextDisabled).toBe(true);
+      expect(last.foldPercent).toBe(100);
     },
   );
 });
