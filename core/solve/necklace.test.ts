@@ -54,3 +54,18 @@ describe("canonicalRotation", () => {
     );
   });
 });
+
+describe("canonicalRotation is the least rotation (brute force)", () => {
+  it("equals the smallest of all n rotations compared as strings of digits", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: 0, max: 3 }), { minLength: 1, maxLength: 12 }),
+        (word) => {
+          const rotations = word.map((_, k) => [...word.slice(k), ...word.slice(0, k)]);
+          const least = rotations.map((r) => r.join("")).sort()[0]!;
+          expect(canonicalRotation(word).join("")).toBe(least);
+        },
+      ),
+    );
+  });
+});

@@ -4,6 +4,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import fc from "fast-check";
 import { cross } from "../lattice/direction";
 import { neg, type Eisenstein } from "../lattice/eisenstein";
 import { halfPlaneMvSplit } from "./half-plane";
@@ -73,4 +74,40 @@ describe("halfPlaneMvSplit", () => {
     expect(vertices).toBeGreaterThan(0);
     expect(openReadingFlags).toBeGreaterThan(0);
   }, 60_000);
+});
+
+describe("halfPlaneMvSplit against a brute-force reference (Thm 11)", () => {
+  /**
+   * Reference by the theorem's own words. POOL[i] points at 30°·i, so work in units of 15°: the
+   * closed half-plane with boundary at 15°·j holds direction i when (2i − j) mod 24 is in [0, 12].
+   * Every line through the vertex that matters is a multiple of 15° (a boundary at a direction or
+   * midway between two), so trying j = 0..23 covers all closed half-planes up to which directions
+   * they hold.
+   */
+  function splitByBruteForce(indices: readonly number[], signs: readonly number[]): boolean {
+    const missing = (sign: number) =>
+      Array.from({ length: 24 }, (_, j) => j).some((j) =>
+        indices.every((i, k) => {
+          const inside = (((2 * i - j) % 24) + 24) % 24 <= 12;
+          return !(inside && signs[k] === sign);
+        }),
+      );
+    if (signs.every((s) => s === 0)) return false;
+    return missing(-1) && missing(1);
+  }
+
+  it("agrees with the closed half-plane definition for any signs on any directions", () => {
+    fc.assert(
+      fc.property(
+        fc.uniqueArray(fc.integer({ min: 0, max: 11 }), { maxLength: 8 }),
+        fc.array(fc.constantFrom<-1 | 0 | 1>(-1, 0, 1), { minLength: 8, maxLength: 8 }),
+        (indices, allSigns) => {
+          const signs = allSigns.slice(0, indices.length);
+          const dirs = indices.map((i) => POOL[i]!);
+          expect(halfPlaneMvSplit(dirs, signs)).toBe(splitByBruteForce(indices, signs));
+        },
+      ),
+      { numRuns: 2000 },
+    );
+  });
 });
