@@ -36,6 +36,12 @@ import { scale, type Crease } from "./crease";
  * frame point also avoids T-junctions where a ray ends. Every ray ends in the interior of a
  * frame side, never at a frame corner.
  *
+ * Twist angle (Lang §3.4, §3.6.1): each pleat makes α = 60° with a triangle side, above the critical
+ * angle αcrit = 90° − 180°/3 = 30° of the equilateral triangle (Eq. 3.13), so this is a supercritical
+ * twist. Of its N(3) = 4 pleat-orientation necklaces the two not-all-equal ones fold at every size,
+ * and the two cyclic ones (all pleats alike, the one built here) fold only when the paper ends
+ * early, n ≥ 3m (Lang Fig. 3.43); see `twist-counts.test.ts`.
+ *
  * This lists the raw geometry for any n, m ≥ 1. It is locally valid for all of them, but it folds
  * flat only when n ≥ 3m (see {@link triangleTwist}); below that it is a ready-made example of a
  * pattern that passes every vertex check and still cannot fold.
@@ -95,7 +101,7 @@ export function triangleTwistCreases(side: number, rayLength: number): Crease[] 
  * The three corners Pₖ are the only interior vertices, so a validator run over the result checks
  * exactly the twist's vertices. See {@link triangleTwistCreases} for the construction.
  *
- * Folds flat exactly when n ≥ 3m. The M/V assignment is not what fails below that: with threefold
+ * Folds flat exactly when n ≥ 3m, which is the finite-paper effect of a supercritical cyclic twist. The M/V assignment is not what fails below that: with threefold
  * symmetry, Big-Little-Big leaves only this assignment and its global flip, and the flip folds the
  * same way. For n < 3m the stacking clauses (`stackingClauses`, step 5.1b) are unsatisfiable and the
  * independent layer oracle agrees; for n ≥ 3m they are satisfiable. The bound was found by running

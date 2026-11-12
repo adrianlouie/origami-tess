@@ -27,6 +27,11 @@ import { hexagonFrame, rotate, scale, type Crease } from "./crease";
  * rays are mountains and extension rays are valleys: three M and one V, so |#M − #V| = 2
  * (Maekawa), and each pleat pairs one M with one V.
  *
+ * Twist angle (Lang §3.4): each pleat makes α = 60° with a hexagon side, which is the critical angle
+ * αcrit = 90° − 180°/6 of the regular hexagon (Eq. 3.13), so this is a closed-back twist and the
+ * centre turns through 2α = 120° against the outer paper. All 14 = N(6) pleat orientations (Eq. 3.1)
+ * are locally valid and fold, as the tests in `twist-angle.test.ts` and `twist-counts.test.ts` check.
+ *
  * The frame is the ring hexDistance = R, listed as 6R unit "B" edges through every lattice point
  * on the ring. Without it the regions between pleats are unbounded and no vertex is interior, so
  * the validators would pass vacuously; listing every ring point also avoids T-junctions where a
