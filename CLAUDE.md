@@ -24,7 +24,9 @@ Status and next steps live in `docs/PLAN.md` and `docs/HANDOFF.md`, not here.
 
 ## Conventions
 - Lattice math uses exact integers (Eisenstein), never floats. Floats only at the
-  render boundary. Any tolerance lives in one shared constant.
+  render boundary and in `core/simulate/` (the physical stage, after every exact stage; its
+  `embed.ts` is where lattice points first become floats). Any tolerance lives in one shared
+  constant, `RENDER_TOLERANCE` in `core/simulate/embed.ts`.
 - `core/` functions are pure; the pattern graph is treated as immutable.
 - Every math function has a test, and its docstring cites the theorem or formula it implements.
 - Prefer property-based tests for invariants (e.g. every generated vertex satisfies Kawasaki).

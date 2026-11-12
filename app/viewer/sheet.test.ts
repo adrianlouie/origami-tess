@@ -31,7 +31,7 @@ describe("sheetGeometry", () => {
     expect(g.bounds.max[0]).toBeCloseTo(Math.max(...xs), 5);
   });
 
-  it("triangulates a face whose boundary has collinear vertices", () => {
+  it("keeps a collinear boundary vertex in the mesh", () => {
     // A triangle with an extra vertex halfway along one side.
     const cp = fromSegments(
       [],
@@ -43,7 +43,9 @@ describe("sheetGeometry", () => {
       ],
     );
     const g = sheetGeometry(cp);
-    expect(g.triangles.length).toBe(3);
+    // Two triangles, so the vertex halfway along the side is a corner of one of them.
+    expect(g.triangles.length).toBe(6);
+    expect(new Set(g.triangles).size).toBe(cp.vertices.length);
   });
 
   it("rejects a face with a hole", () => {

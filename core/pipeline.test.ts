@@ -24,6 +24,9 @@ import { foldedToSvg } from "../app/render/folded-svg";
 import { gridToSvg, tilingToSvg } from "../app/render/svg";
 import { GADGET_ENTRIES } from "../app/viewer/gadgets";
 import { buildScene } from "../app/viewer/scene";
+import { sheetGeometry } from "../app/viewer/sheet";
+import { barHingeModel } from "./simulate/model";
+import { relax, restState } from "./simulate/relax";
 
 type Expected = { status: "ok" } | { status: "partial"; score: { num: number; den: number } };
 
@@ -105,6 +108,23 @@ describe("pattern → 3D scene", () => {
     "%s builds a scene with its sheet",
     (_name, entry) => {
       expect(buildScene(entry.build()).getObjectByName("sheet")).toBeDefined();
+    },
+  );
+});
+
+describe("pattern → fold simulation", () => {
+  it.each(GADGET_ENTRIES.map((e) => [e.name, e] as const))(
+    "%s settles at fold 0.5 and shares its mesh and node layout with the viewer sheet",
+    (_name, entry) => {
+      const cp = entry.build();
+      const model = barHingeModel(cp);
+      const sheet = sheetGeometry(cp);
+      // 6.2b writes the simulated positions straight into the viewer's position buffer.
+      expect(model.rest).toHaveLength(sheet.positions.length);
+      expect(Array.from(model.triangles.flat())).toEqual(Array.from(sheet.triangles));
+      const result = relax(model, restState(model), 0.5);
+      expect(result.settled).toBe(true);
+      expect(result.positions.every(Number.isFinite)).toBe(true);
     },
   );
 });

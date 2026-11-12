@@ -7,9 +7,9 @@
  * points become floats here, through `toCartesian`.
  */
 
-import { toCartesian } from "../render/cartesian";
+import { toCartesian } from "../../core/simulate/embed";
 import type { Assignment, CreasePattern } from "../../core/pattern/crease-pattern";
-import { triangulateFace } from "../../core/solve/overlap";
+import { triangulateFaceKeepingVertices } from "../../core/simulate/mesh";
 import type { Bounds } from "./camera-rig";
 
 /** Every assignment, in a fixed order. */
@@ -30,7 +30,9 @@ export type SheetGeometry = {
 /**
  * Builds the flat sheet mesh of a crease pattern.
  *
- * Each bounded face is cut into triangles by ear clipping ({@link triangulateFace}, Meisters 1975).
+ * Each bounded face is cut into triangles by ear clipping that keeps every boundary vertex
+ * ({@link triangulateFaceKeepingVertices}, Meisters 1975), so the fold simulation can use the same
+ * triangles and no frame or crease vertex floats free of the mesh.
  * A face with a hole is rejected, as in `foldFaces`: a nested component needs a triangulation of a
  * polygon with holes, which no shipped pattern has.
  *
@@ -43,13 +45,11 @@ export function sheetGeometry(cp: CreasePattern): SheetGeometry {
     throw new RangeError("faces with holes are not supported by the viewer");
   }
   const positions = new Float32Array(cp.vertices.length * 3);
-  const index = new Map<string, number>();
   const min: [number, number, number] = [0, 0, 0];
   const max: [number, number, number] = [0, 0, 0];
   cp.vertices.forEach((z, i) => {
     const p = toCartesian(z);
     positions.set([p.x, p.y, 0], 3 * i);
-    index.set(`${z.a},${z.b}`, i);
     if (i === 0) {
       min[0] = max[0] = p.x;
       min[1] = max[1] = p.y;
@@ -63,13 +63,7 @@ export function sheetGeometry(cp: CreasePattern): SheetGeometry {
 
   const tri: number[] = [];
   for (const face of cp.faces) {
-    for (const t of triangulateFace(cp.vertices, face)) {
-      for (const z of t) {
-        const i = index.get(`${z.a},${z.b}`);
-        if (i === undefined) throw new RangeError("triangle vertex is not a pattern vertex");
-        tri.push(i);
-      }
-    }
+    for (const t of triangulateFaceKeepingVertices(cp.vertices, face)) tri.push(...t);
   }
 
   const pairs: Record<Assignment, number[]> = { M: [], V: [], B: [], F: [], U: [] };
