@@ -3,6 +3,8 @@ import { GADGET_ENTRIES } from "../viewer/gadgets";
 import { creasePatternToSvg } from "../render/crease-svg";
 import { exportFile, slug } from "./download";
 import { creasePatternToPdf } from "./pdf";
+import { foldStepsToPdf } from "./steps-pdf";
+import { foldStepsToSvg } from "../render/steps-svg";
 
 describe("slug", () => {
   it("makes a lower-case, dash-separated file stem", () => {
@@ -43,6 +45,17 @@ describe("exportFile", () => {
     const a4 = exportFile(cp, entry.name, "pdf", "a4").data as Uint8Array;
     const letter = exportFile(cp, entry.name, "pdf", "letter").data as Uint8Array;
     expect(a4).not.toEqual(letter);
+  });
+
+  it("exports the folding steps as a PDF and as an SVG sheet", () => {
+    const pdf = exportFile(cp, entry.name, "steps-pdf", "letter");
+    expect(pdf.filename).toBe("hexagon-twist-1-2-steps.pdf");
+    expect(pdf.mime).toBe("application/pdf");
+    expect(pdf.data).toEqual(foldStepsToPdf(cp, entry.name, { page: "letter" }));
+    const svg = exportFile(cp, entry.name, "steps-svg", "a4");
+    expect(svg.filename).toBe("hexagon-twist-1-2-steps.svg");
+    expect(svg.mime).toBe("image/svg+xml");
+    expect(svg.data).toBe(foldStepsToSvg(cp, entry.name));
   });
 
   it("rejects an unknown kind", () => {

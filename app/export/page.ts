@@ -56,10 +56,10 @@ export function extentOf(points: readonly Point[]): Extent {
 }
 
 /** Largest scale at which a `w` × `h` drawing fits a page `pw` × `ph` with margin `m`. */
-function scaleFor(w: number, h: number, pw: number, ph: number, m: number): number {
+function scaleFor(w: number, h: number, pw: number, ph: number, m: number, top: number): number {
   // A zero extent on an axis puts no limit on that axis; a point has no limit at all, so use 1.
   const sx = w > 0 ? (pw - 2 * m) / w : Infinity;
-  const sy = h > 0 ? (ph - 2 * m) / h : Infinity;
+  const sy = h > 0 ? (ph - 2 * m - top) / h : Infinity;
   const s = Math.min(sx, sy);
   return Number.isFinite(s) ? s : 1;
 }
@@ -72,6 +72,7 @@ function scaleFor(w: number, h: number, pw: number, ph: number, m: number): numb
  * @param page - page size name
  * @param margin - margin on every side, in points; less than half the shorter page side
  * @param orientation - portrait, landscape or auto
+ * @param reserveTop - extra points kept free along the top edge, for a caption (default 0)
  * @returns the page size and the lattice-to-page mapping
  * @throws RangeError for an unknown page or orientation, a bad margin, or an inverted extent
  */
@@ -80,6 +81,7 @@ export function fitToPage(
   page: PageName,
   margin: number,
   orientation: Orientation,
+  reserveTop = 0,
 ): PageFit {
   const size = PAGE_SIZES[page];
   if (size === undefined) throw new RangeError(`Unknown page size ${String(page)}`);
@@ -89,14 +91,19 @@ export function fitToPage(
   if (!Number.isFinite(margin) || margin < 0 || 2 * margin >= size.width) {
     throw new RangeError(`margin must be in [0, ${size.width / 2}), got ${margin}`);
   }
+  if (!Number.isFinite(reserveTop) || reserveTop < 0 || reserveTop + 2 * margin >= size.width) {
+    throw new RangeError(
+      `reserveTop must be in [0, ${size.width - 2 * margin}), got ${reserveTop}`,
+    );
+  }
   const w = extent.maxX - extent.minX;
   const h = extent.maxY - extent.minY;
   if (!(w >= 0 && h >= 0)) throw new RangeError("extent is inverted or not finite");
 
   const portrait = { width: size.width, height: size.height };
   const landscape = { width: size.height, height: size.width };
-  const sp = scaleFor(w, h, portrait.width, portrait.height, margin);
-  const sl = scaleFor(w, h, landscape.width, landscape.height, margin);
+  const sp = scaleFor(w, h, portrait.width, portrait.height, margin, reserveTop);
+  const sl = scaleFor(w, h, landscape.width, landscape.height, margin, reserveTop);
   const useLandscape = orientation === "landscape" || (orientation === "auto" && sl > sp);
   const { width, height } = useLandscape ? landscape : portrait;
   const scale = useLandscape ? sl : sp;
@@ -105,6 +112,6 @@ export function fitToPage(
     height,
     scale,
     offsetX: (width - w * scale) / 2,
-    offsetY: (height - h * scale) / 2,
+    offsetY: (height - reserveTop - h * scale) / 2,
   };
 }

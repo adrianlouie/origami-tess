@@ -28,6 +28,8 @@ import { creasePatternToSvg } from "../app/render/crease-svg";
 import { buildScene } from "../app/viewer/scene";
 import { creaseLines } from "./pattern/lines";
 import { foldSteps } from "./pattern/fold-steps";
+import { foldStepsToPdf } from "../app/export/steps-pdf";
+import { foldStepsToSvg } from "../app/render/steps-svg";
 import { sheetGeometry } from "../app/viewer/sheet";
 import { barHingeModel } from "./simulate/model";
 import { relax, restState } from "./simulate/relax";
@@ -144,6 +146,19 @@ describe("pattern → fold steps", () => {
       const mv = cp.edges.filter((e) => e.assignment === "M" || e.assignment === "V");
       expect(covered).toHaveLength(mv.length);
       expect(new Set(covered).size).toBe(mv.length);
+    },
+  );
+});
+
+describe("fold steps → step exports", () => {
+  it.each(GADGET_ENTRIES.map((e) => [e.name, e] as const))(
+    "%s exports a PDF page and an SVG panel per step",
+    (_name, entry) => {
+      const cp = entry.build();
+      const n = foldSteps(cp).length;
+      const pdf = new TextDecoder("latin1").decode(foldStepsToPdf(cp, entry.name));
+      expect(pdf).toContain(`/Count ${n + 1}`);
+      expect(foldStepsToSvg(cp, entry.name).match(/<g data-step="/g)).toHaveLength(n);
     },
   );
 });

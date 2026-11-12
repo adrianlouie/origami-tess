@@ -6,10 +6,8 @@
  * so the file needs no fonts, images or compression, and no dates or ids, which keeps the bytes
  * deterministic and snapshot-testable.
  *
- * File structure: ISO 32000-1 §7.5 (header, body of numbered objects, cross-reference table with
- * the byte offset of each object, trailer, `startxref`, `%%EOF`). Line dash pattern `[array] phase
- * d`: §8.4.3.6; round line cap `1 J`: §8.4.3.3. Every character written is ASCII, so a string's
- * length is its byte length and the offsets can be counted on the string.
+ * The file structure and the stroke operators live in `pdf-writer.ts`, which the step-by-step
+ * export shares; this module decides what to draw and where.
  */
 
 import { creaseLines } from "../../core/pattern/lines";
@@ -17,6 +15,7 @@ import type { CreasePattern } from "../../core/pattern/crease-pattern";
 import { toCartesian } from "../render/cartesian";
 import { CREASE_STYLE, DRAW_ORDER } from "../render/crease-style";
 import { checkOptions } from "../render/svg";
+import { num, pdfDocument, strokeBlock } from "./pdf-writer";
 import { extentOf, fitToPage, type Orientation, type PageName } from "./page";
 
 /** Options for {@link creasePatternToPdf}. */
@@ -30,12 +29,6 @@ export type PdfOptions = {
   /** Default `auto`: the orientation that makes the drawing larger. */
   readonly orientation?: Orientation;
 };
-
-/** A number for the content stream: three decimals (1/1000 point), no exponent, no "-0". */
-function num(n: number): string {
-  const s = n.toFixed(3);
-  return Number(s) === 0 ? "0.000" : s;
-}
 
 /**
  * Renders a crease pattern as a one-page PDF with mountain/valley line styles.
@@ -67,42 +60,8 @@ export function creasePatternToPdf(
   const lines = creaseLines(cp);
   const content = DRAW_ORDER.flatMap((a) => {
     const mine = lines.filter((l) => l.assignment === a);
-    if (mine.length === 0) return [];
-    const style = CREASE_STYLE[a];
-    const rgb = [(style.color >> 16) & 255, (style.color >> 8) & 255, style.color & 255]
-      .map((c) => num(c / 255))
-      .join(" ");
-    const dash = style.dash.map((d) => num(d * strokeWidth)).join(" ");
-    return [
-      "q",
-      `${rgb} RG`,
-      `${num(style.width * strokeWidth)} w`,
-      `${style.dash.includes(0) ? 1 : 0} J`,
-      `[${dash}] 0 d`,
-      ...mine.map((l) => `${place(l.from)} m ${place(l.to)} l S`),
-      "Q",
-    ];
+    return mine.length === 0 ? [] : [strokeBlock(CREASE_STYLE[a], strokeWidth, mine, place)];
   });
   const stream = content.length ? `${content.join("\n")}\n` : "";
-
-  const objects = [
-    "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${num(fit.width)} ${num(fit.height)}] /Resources << >> /Contents 4 0 R >>`,
-    // `Length` counts the stream's bytes between the "stream" and "endstream" keywords' newlines.
-    `<< /Length ${stream.length} >>\nstream\n${stream}endstream`,
-  ];
-
-  let file = "%PDF-1.4\n";
-  const offsets = objects.map((body, i) => {
-    const at = file.length;
-    file += `${i + 1} 0 obj\n${body}\nendobj\n`;
-    return at;
-  });
-  const xref = file.length;
-  const pad = (n: number) => String(n).padStart(10, "0");
-  file += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  file += offsets.map((o) => `${pad(o)} 00000 n \n`).join("");
-  file += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
-  return new TextEncoder().encode(file);
+  return pdfDocument([{ width: fit.width, height: fit.height, content: stream }]);
 }

@@ -8,8 +8,8 @@
 
 import type { Eisenstein } from "../../core/lattice/eisenstein";
 import type { FoldStep } from "../../core/pattern/fold-steps";
-import { toCartesian, type Point } from "../render/cartesian";
-import { CREASE_STYLE } from "../render/crease-style";
+import { toCartesian, type Point } from "./cartesian";
+import { CREASE_STYLE } from "./crease-style";
 
 /** Highlight colour of a grid step: neither the mountain red nor the valley blue. */
 export const HIGHLIGHT_GRID_COLOR = 0xe69f00;
@@ -38,10 +38,15 @@ const lines = (n: number) => `${n} ${n === 1 ? "line" : "lines"}`;
  *
  * @param steps - the whole sequence from `foldSteps`
  * @param index - which step, 0-based
+ * @param medium - `viewer` (the collapse mentions the slider) or `print` (it does not)
  * @returns a sentence starting "Step i of n: "
  * @throws RangeError if `index` is outside the list
  */
-export function stepCaption(steps: readonly FoldStep[], index: number): string {
+export function stepCaption(
+  steps: readonly FoldStep[],
+  index: number,
+  medium: "viewer" | "print" = "viewer",
+): string {
   const step = steps[index];
   if (!step) throw new RangeError(`Step ${index} is outside 0..${steps.length - 1}`);
   const head = `Step ${index + 1} of ${steps.length}: `;
@@ -56,7 +61,7 @@ export function stepCaption(steps: readonly FoldStep[], index: number): string {
       return `${head}${turn}Fold and unfold ${where} (mountains from the front).`;
     }
     case "collapse":
-      return `${head}Collapse. Push the pattern together so every crease folds at once; drag the slider to watch.`;
+      return `${head}Collapse. Push the pattern together so every crease folds at once.${medium === "viewer" ? " Drag the slider to watch." : ""}`;
   }
 }
 
