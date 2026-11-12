@@ -19,6 +19,15 @@
         gap: 8px;
         align-items: center;
       }
+      #steps {
+        position: fixed;
+        bottom: 8px;
+        left: 8px;
+        right: 8px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
       #fold {
         width: 160px;
       }
@@ -32,6 +41,11 @@
   </head>
   <body>
     <canvas id="view"></canvas>
+    <div id="steps">
+      <button id="step-prev" type="button">Prev</button>
+      <button id="step-next" type="button">Next</button>
+      <output id="step-text">Pick a step to begin.</output>
+    </div>
     <div id="bar">
       <select id="gadget" aria-label="Gadget"></select>
       <button id="reset" type="button">Reset view</button>

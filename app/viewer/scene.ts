@@ -155,6 +155,47 @@ export function buildScene(
   return scene;
 }
 
+/** Height of the step highlight above the flat sheet, so it is not hidden by the paper. */
+const HIGHLIGHT_LIFT = 0.02;
+
+/**
+ * Shows, replaces or removes the highlight of the current folding step.
+ *
+ * The highlight is one non-indexed `LineSegments` named "step-highlight", lifted just above the
+ * flat sheet; it does not follow the fold, so the viewer clears it for the collapse step. Any
+ * previous highlight is removed and its geometry and material disposed.
+ *
+ * @param scene - a scene from {@link buildScene}
+ * @param segments - end point pairs in the sheet's x, y plane (lattice units), or null for none
+ * @param color - 0xRRGGBB, used when `segments` is not null
+ */
+export function setStepHighlight(
+  scene: THREE.Scene,
+  segments: readonly (readonly [{ x: number; y: number }, { x: number; y: number }])[] | null,
+  color = 0xe69f00,
+): void {
+  const old = scene.getObjectByName("step-highlight");
+  if (old instanceof THREE.LineSegments) {
+    scene.remove(old);
+    old.geometry.dispose();
+    (old.material as THREE.Material).dispose();
+  }
+  if (!segments || segments.length === 0) return;
+  const positions = new Float32Array(segments.length * 6);
+  segments.forEach(([p, q], i) => {
+    positions.set([p.x, p.y, HIGHLIGHT_LIFT, q.x, q.y, HIGHLIGHT_LIFT], 6 * i);
+  });
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  const lines = new THREE.LineSegments(
+    geometry,
+    new THREE.LineBasicMaterial({ color, depthTest: false }),
+  );
+  lines.name = "step-highlight";
+  lines.renderOrder = 1;
+  scene.add(lines);
+}
+
 /**
  * Moves the sheet and its crease lines to simulated positions.
  *

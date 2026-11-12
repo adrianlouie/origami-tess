@@ -27,6 +27,7 @@ import { creasePatternToPdf } from "../app/export/pdf";
 import { creasePatternToSvg } from "../app/render/crease-svg";
 import { buildScene } from "../app/viewer/scene";
 import { creaseLines } from "./pattern/lines";
+import { foldSteps } from "./pattern/fold-steps";
 import { sheetGeometry } from "../app/viewer/sheet";
 import { barHingeModel } from "./simulate/model";
 import { relax, restState } from "./simulate/relax";
@@ -126,6 +127,23 @@ describe("pattern → export", () => {
       expect(creasePatternToSvg(cp).match(/<line /g)).toHaveLength(lines.length);
       const pdf = new TextDecoder("latin1").decode(creasePatternToPdf(cp));
       expect(pdf.match(/ l S\n/g)).toHaveLength(lines.length);
+    },
+  );
+});
+
+describe("pattern → fold steps", () => {
+  it.each(GADGET_ENTRIES.map((e) => [e.name, e] as const))(
+    "%s has a step list that covers every mountain and valley edge once",
+    (_name, entry) => {
+      const cp = entry.build();
+      const steps = foldSteps(cp);
+      expect(steps.at(-1)!.kind).toBe("collapse");
+      const covered = steps.flatMap((s) =>
+        s.kind === "crease" ? s.lines.flatMap((l) => l.edges) : [],
+      );
+      const mv = cp.edges.filter((e) => e.assignment === "M" || e.assignment === "V");
+      expect(covered).toHaveLength(mv.length);
+      expect(new Set(covered).size).toBe(mv.length);
     },
   );
 });

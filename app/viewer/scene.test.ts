@@ -13,7 +13,14 @@ import {
 import { RENDER_TOLERANCE } from "../render/cartesian";
 import { fitRig, orbit } from "./camera-rig";
 import { barHingeModel } from "../../core/simulate/model";
-import { applyRig, buildScene, PAPER_COLORS, setPaperColor, updateSheet } from "./scene";
+import {
+  applyRig,
+  buildScene,
+  PAPER_COLORS,
+  setPaperColor,
+  setStepHighlight,
+  updateSheet,
+} from "./scene";
 import { ASSIGNMENTS, sheetGeometry } from "./sheet";
 
 const GADGETS: [string, CreasePattern][] = [
@@ -311,5 +318,49 @@ describe("updateSheet", () => {
 
   it("throws RangeError when the array is the wrong length", () => {
     expect(() => updateSheet(buildScene(cp), new Float64Array(3))).toThrow(RangeError);
+  });
+});
+
+describe("setStepHighlight", () => {
+  const seg = (x: number): [{ x: number; y: number }, { x: number; y: number }] => [
+    { x, y: 0 },
+    { x, y: 1 },
+  ];
+  const find = (scene: THREE.Scene) => scene.getObjectsByProperty("name", "step-highlight");
+
+  it("adds one non-indexed line object with two points per segment, lifted above the sheet", () => {
+    const scene = buildScene(hexagonTwist(1, 2));
+    setStepHighlight(scene, [seg(0), seg(1)], 0x123456);
+    const [h] = find(scene) as THREE.LineSegments[];
+    expect(find(scene)).toHaveLength(1);
+    expect(h!.geometry.getIndex()).toBeNull();
+    const pos = h!.geometry.getAttribute("position");
+    expect(pos.count).toBe(4);
+    expect(pos.getZ(0)).toBeGreaterThan(0);
+    expect((h!.material as THREE.LineBasicMaterial).color.getHex()).toBe(0x123456);
+  });
+
+  it("replaces the previous highlight, disposing its geometry", () => {
+    const scene = buildScene(hexagonTwist(1, 2));
+    setStepHighlight(scene, [seg(0)]);
+    const [first] = find(scene) as THREE.LineSegments[];
+    let disposed = false;
+    first!.geometry.addEventListener("dispose", () => (disposed = true));
+    setStepHighlight(scene, [seg(0), seg(2)]);
+    expect(find(scene)).toHaveLength(1);
+    expect(find(scene)[0]).not.toBe(first);
+    expect(disposed).toBe(true);
+  });
+
+  it("removes the highlight for null or an empty list, and leaves the sheet alone", () => {
+    const scene = buildScene(hexagonTwist(1, 2));
+    const before = scene.children.length;
+    setStepHighlight(scene, [seg(0)]);
+    setStepHighlight(scene, null);
+    expect(find(scene)).toHaveLength(0);
+    setStepHighlight(scene, [seg(0)]);
+    setStepHighlight(scene, []);
+    expect(find(scene)).toHaveLength(0);
+    expect(scene.children).toHaveLength(before);
   });
 });
