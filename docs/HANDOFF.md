@@ -8,7 +8,7 @@ Ran `/next-step`: merged [PR #37](https://github.com/adrianlouie/origami-tess/pu
 - `.idea/` is excluded locally through `.git/info/exclude`.
 
 ## Next step
-**7.1, SVG/PDF export with M/V line styles** (Phase 7). First thing: ask the user whether they want a detailed plan (`CLAUDE.md`). Starting points: `app/render/` already draws the 2D pattern as SVG (it negates y; M red, V blue as in the viewer's `CREASE_COLORS`); the new work is the line styles (dash patterns that survive a black-and-white print), a page size and a PDF writer. Decide with the user whether PDF is a dependency or SVG printed through the browser.
+**7.1, SVG/PDF export with M/V line styles** (Phase 7). First thing: ask the user whether they want a detailed plan (`CLAUDE.md`). Starting points: `app/render/svg.ts` draws grids and tilings and `folded-svg.ts` the folded state, so **no renderer draws a crease pattern with M/V styles yet**; reuse their helpers (`checkOptions`, the y-negating pixel map, `fmt`, `svgDocument`) and the viewer's `CREASE_COLORS` (M red, V blue, B dark, F and U grey). The new work is the crease-pattern SVG, line styles that survive a black-and-white print (dash patterns, not only colour), a page size and a PDF writer. Decide with the user whether PDF is a dependency or SVG printed through the browser.
 
 ## Gotchas and decisions
 - `/next-step` squash-merges the open PR (CI green only; stops if red, pending or ambiguous). Each step's own PR ticks its plan box; write the handoff right after opening the PR and commit it to the same branch.
