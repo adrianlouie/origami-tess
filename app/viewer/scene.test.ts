@@ -13,7 +13,7 @@ import {
 import { RENDER_TOLERANCE } from "../render/cartesian";
 import { fitRig, orbit } from "./camera-rig";
 import { barHingeModel } from "../../core/simulate/model";
-import { applyRig, buildScene, updateSheet } from "./scene";
+import { applyRig, buildScene, PAPER_COLORS, setPaperColor, updateSheet } from "./scene";
 import { ASSIGNMENTS, sheetGeometry } from "./sheet";
 
 const GADGETS: [string, CreasePattern][] = [
@@ -125,6 +125,93 @@ describe.each(GADGETS)("buildScene: %s", (_name, cp) => {
       ),
       { numRuns: 50 },
     );
+  });
+});
+
+function backOf(scene: THREE.Scene): THREE.Mesh {
+  const mesh = scene.getObjectByName("sheet-back");
+  if (!(mesh instanceof THREE.Mesh)) throw new Error("no back mesh");
+  return mesh;
+}
+
+const colorOf = (mesh: THREE.Mesh): number =>
+  (mesh.material as THREE.MeshStandardMaterial).color.getHex();
+
+describe.each(GADGETS)("paper front and back: %s", (_name, cp) => {
+  it("draws the front and the back as two meshes that share one geometry", () => {
+    const scene = buildScene(cp);
+    const [front, back] = [sheetOf(scene), backOf(scene)];
+    expect((front.material as THREE.Material).side).toBe(THREE.FrontSide);
+    expect((back.material as THREE.Material).side).toBe(THREE.BackSide);
+    expect(back.geometry).toBe(front.geometry);
+  });
+
+  it("the front faces +z while the sheet is flat (counter-clockwise triangles)", () => {
+    const mesh = sheetOf(buildScene(cp));
+    const pos = mesh.geometry.getAttribute("position");
+    const index = mesh.geometry.getIndex()!;
+    const [a, b, c, n] = [0, 1, 2, 3].map(() => new THREE.Vector3());
+    for (let i = 0; i < index.count; i += 3) {
+      a!.fromBufferAttribute(pos, index.getX(i));
+      b!.fromBufferAttribute(pos, index.getX(i + 1));
+      c!.fromBufferAttribute(pos, index.getX(i + 2));
+      new THREE.Triangle(a, b, c).getNormal(n!);
+      expect(n!.z).toBeCloseTo(1, 5);
+    }
+  });
+
+  it("both materials are flat shaded with a polygon offset", () => {
+    const scene = buildScene(cp);
+    for (const mesh of [sheetOf(scene), backOf(scene)]) {
+      const material = mesh.material as THREE.MeshStandardMaterial;
+      expect(material.flatShading).toBe(true);
+      expect(material.polygonOffset).toBe(true);
+    }
+  });
+
+  it("the back mesh follows updateSheet through the shared geometry", () => {
+    const scene = buildScene(cp);
+    const positions = Float64Array.from(barHingeModel(cp).rest);
+    for (let i = 2; i < positions.length; i += 3) positions[i] = 50;
+    updateSheet(scene, positions);
+    expect(backOf(scene).geometry.boundingSphere!.center.z).toBeCloseTo(50, 3);
+    expect(backOf(scene).geometry.boundingBox!.min.z).toBeCloseTo(50, 3);
+  });
+});
+
+describe("paper colours", () => {
+  const cp = hexagonTwist(1, 2);
+
+  it("start at the defaults, which differ so a fold shows without touching the pickers", () => {
+    const scene = buildScene(cp);
+    expect(colorOf(sheetOf(scene))).toBe(PAPER_COLORS.front);
+    expect(colorOf(backOf(scene))).toBe(PAPER_COLORS.back);
+    expect(PAPER_COLORS.front).not.toBe(PAPER_COLORS.back);
+  });
+
+  it("buildScene applies colours passed in", () => {
+    const scene = buildScene(cp, { front: 0x112233, back: 0x445566 });
+    expect(colorOf(sheetOf(scene))).toBe(0x112233);
+    expect(colorOf(backOf(scene))).toBe(0x445566);
+  });
+
+  it("setPaperColor changes one side and leaves the other alone", () => {
+    const scene = buildScene(cp);
+    setPaperColor(scene, "back", "#123456");
+    expect(colorOf(backOf(scene))).toBe(0x123456);
+    expect(colorOf(sheetOf(scene))).toBe(PAPER_COLORS.front);
+    setPaperColor(scene, "front", "#abcdef");
+    expect(colorOf(sheetOf(scene))).toBe(0xabcdef);
+    expect(colorOf(backOf(scene))).toBe(0x123456);
+  });
+
+  it("the two sides do not share a material, so one picker cannot recolour the other", () => {
+    const scene = buildScene(cp);
+    expect(backOf(scene).material).not.toBe(sheetOf(scene).material);
+  });
+
+  it("setPaperColor throws on a scene without the paper", () => {
+    expect(() => setPaperColor(new THREE.Scene(), "front", "#ffffff")).toThrow(Error);
   });
 });
 

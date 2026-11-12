@@ -110,7 +110,9 @@ describe("pattern → 3D scene", () => {
   it.each(GADGET_ENTRIES.map((e) => [e.name, e] as const))(
     "%s builds a scene with its sheet",
     (_name, entry) => {
-      expect(buildScene(entry.build()).getObjectByName("sheet")).toBeDefined();
+      const scene = buildScene(entry.build());
+      expect(scene.getObjectByName("sheet")).toBeDefined();
+      expect(scene.getObjectByName("sheet-back")).toBeDefined();
     },
   );
 });
