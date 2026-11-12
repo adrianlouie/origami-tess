@@ -193,6 +193,7 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - Decided with the user: the camera stays put while folding (`fitRig` on load only; Reset view returns to the flat framing)
   - Tests: ramp property (fast-check, retargeting mid-animation), settled sign rule on the hexagon, triangle and full star twists, return to flat, idle no-op, URL parameters, `updateSheet`, and that the model and the sheet share node order and triangles. Mutation-checked: no ramp clamp, no idle shortcut and no bounding-sphere update each fail a test
   - Checked by eye in headless Chrome: flat, hexagon twist at 60 % and 100 %, full star at 75 %, triangle twist (6, 2) at 50 %. This also confirms the 6.2a item: the sheet shows no gaps after `triangulateFaceKeepingVertices`
+- [ ] 6.3 Phase 6 audit (`audit/phase-6`): debug and test Phases 1 to 6 per the `CLAUDE.md` "Phase audits" section
 
 ## Phase 7: Export
 - [ ] 7.1 SVG/PDF with M/V line styles
