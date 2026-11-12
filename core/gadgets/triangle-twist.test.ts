@@ -28,7 +28,14 @@ const key = (c: Crease) => {
 /** The raw pattern for any size: locally valid even where it cannot fold (n < 3m). */
 const raw = (n: number, m: number) => fromSegments([], triangleTwistCreases(n, m));
 
-const clean = { kawasaki: [], maekawa: [], unassigned: [], bigLittleBig: [] };
+const clean = {
+  kawasaki: [],
+  maekawa: [],
+  unassigned: [],
+  bigLittleBig: [],
+  borderBigLittleBig: [],
+  singleVertex: [],
+};
 
 describe("triangleTwist", () => {
   it("passes Kawasaki, Maekawa and Big-Little-Big at the three corners (n=3, m=1)", () => {

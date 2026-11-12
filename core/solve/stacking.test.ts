@@ -463,3 +463,115 @@ describe("stackingClauses: transitivity only where three faces share a point", (
     expect(formula.clauses).toEqual([]);
   });
 });
+
+/**
+ * A strip of three facets A, B, C of widths a, b, c (Lang, Fig. 1.5, pp. 10–11): a rectangle with
+ * two parallel creases of one assignment, a lattice unit tall.
+ *
+ * The creases run along 90°, a mirror axis of the lattice, so the fold maps are exact. Both folds
+ * turn the same way, so A and C land on the same side of B.
+ */
+function stripOfThirds(a: number, b: number, c: number, assignment: "M" | "V"): CreasePattern {
+  const up = eis(1, 2);
+  const width = a + b + c;
+  const bottom = (x: number) => eis(x, 0);
+  const top = (x: number) => add(eis(x, 0), up);
+  const border: { from: Eisenstein; to: Eisenstein; assignment: Assignment }[] = [];
+  for (let x = 0; x < width; x++) {
+    border.push({ from: bottom(x), to: bottom(x + 1), assignment: "B" });
+    border.push({ from: top(x), to: top(x + 1), assignment: "B" });
+  }
+  border.push({ from: bottom(0), to: top(0), assignment: "B" });
+  border.push({ from: bottom(width), to: top(width), assignment: "B" });
+  return fromSegments(
+    [],
+    [
+      ...border,
+      { from: bottom(a), to: top(a), assignment },
+      { from: bottom(a + b), to: top(a + b), assignment },
+    ],
+  );
+}
+
+describe("the strip of thirds (Lang, Fig. 1.5): the order of the outer facets", () => {
+  const widths = [1, 2, 3, 4];
+  const cases = widths.flatMap((a) => widths.flatMap((b) => widths.map((c) => ({ a, b, c }))));
+
+  /** The faces of the strip from left to right, by the mean x of their corners. */
+  const leftToRight = (cp: CreasePattern): number[] => {
+    const meanX = (face: readonly number[]) =>
+      face.reduce((sum, v) => sum + cp.vertices[v]!.a - cp.vertices[v]!.b / 2, 0) / face.length;
+    return cp.faces.map((_, f) => f).sort((p, q) => meanX(cp.faces[p]!) - meanX(cp.faces[q]!));
+  };
+
+  /**
+   * Can flap `inner` be the one next to B, with `outer` on its far side?
+   *
+   * Both flaps fold onto the same side of B, so the stack is B, inner, outer going up or going
+   * down; the solver's frame fixes the first facet and may view the fold from either side, so
+   * both directions are tried. The inner flap lies between B and the outer one, and its far edge
+   * must not pass the hinge that joins B to the outer flap: it has to fit within B.
+   */
+  const innerFeasible = (
+    formula: StackingFormula,
+    inner: number,
+    outer: number,
+    middle: number,
+  ): boolean => {
+    const sat = (extra: number[][]) =>
+      solveClauses(formula.variableCount, [...lits(formula), ...extra]) !== null;
+    return (
+      sat([[aboveLiteral(formula, inner, middle)], [aboveLiteral(formula, outer, inner)]]) ||
+      sat([[aboveLiteral(formula, middle, inner)], [aboveLiteral(formula, inner, outer)]])
+    );
+  };
+
+  it.each(["V", "M"] as const)(
+    "lets a flap sit next to B only if it fits within B, and none if neither does (%s folds)",
+    (assignment) => {
+      let neither = 0;
+      let both = 0;
+      let one = 0;
+      for (const { a, b, c } of cases) {
+        const cp = stripOfThirds(a, b, c, assignment);
+        expect(cp.faces).toHaveLength(3);
+        const [fa, fb, fc] = leftToRight(cp) as [number, number, number];
+        const { formula } = stackOf(cp);
+        const overlap = formula.pairs.some(
+          ([p, q]) => p === Math.min(fa, fc) && q === Math.max(fa, fc),
+        );
+        // Folded onto B, A covers [a, 2a] and C covers [a + b − c, a + b]: they overlap in area
+        // exactly when a + c > b.
+        expect(overlap).toBe(a + c > b);
+        const feasible = solveClauses(formula.variableCount, lits(formula)) !== null;
+        if (!overlap) {
+          expect(feasible).toBe(true);
+          continue;
+        }
+        const aInner = innerFeasible(formula, fa, fc, fb);
+        const cInner = innerFeasible(formula, fc, fa, fb);
+        expect(aInner).toBe(a <= b);
+        expect(cInner).toBe(c <= b);
+        expect(feasible).toBe(aInner || cInner);
+        if (aInner && cInner) both++;
+        else if (aInner || cInner) one++;
+        else neither++;
+      }
+      // Non-vacuous: some strips allow both orders, some one, and some none (A and C both wider
+      // than B: the third case of Fig. 1.5, where the assignment is invalid).
+      expect(both).toBeGreaterThan(0);
+      expect(one).toBeGreaterThan(0);
+      expect(neither).toBeGreaterThan(0);
+    },
+  );
+
+  it("leaves a strip of equal thirds with exactly two stacking orders of its outer facets", () => {
+    const cp = stripOfThirds(2, 2, 2, "V");
+    const [fa, fb, fc] = leftToRight(cp) as [number, number, number];
+    const { formula } = stackOf(cp);
+    expect([innerFeasible(formula, fa, fc, fb), innerFeasible(formula, fc, fa, fb)]).toEqual([
+      true,
+      true,
+    ]);
+  });
+});

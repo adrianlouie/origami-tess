@@ -610,6 +610,8 @@ Checks on code that already exists; no new modules.
 - Ch. 7/8/9 (test-only parts): analytic fold angles as ground truth for `relax`; developability residual and consistency residual reported with each settled state; face-normal (Gauss map) checks on settled meshes; Theorems 9-11 half-plane post-conditions; vertex-colour check on `layeredView`.
 - Docs: model-hierarchy wording, drawing-convention preset note, glossary terms.
 
+**Status after 7.3b (2026-11-12).** Done: strip of thirds; the 4 / 6 / 8 counts; Maekawa and BLB injectivity note; Hull's single-vertex test; BLB at border vertices; the face two-colouring helper (the 7.1b colour pickers colour by mesh side, and `foldedToSvg` already reads `foldFaces().flipped`, so the helper's use is the agreement test, not a replacement); `maxwellExcess`; Thms 9 and 10 and the vertex-colour check; `completeDegree4`; model-hierarchy and drawing-convention notes; glossary file. Not reconstructed: the impossible triangles of Figs. 1.41 and 1.44 (Fig. 1.40 and the border variant of Fig. 1.45 are done). Left for 7.3c: the bird's-foot analytic fold-angle test, the 1D strip fixtures and solver scale benchmark, twist α against αcrit/αsafe, the 2α rotation, twist assignment and N(n) counts, the analytic fold angles and residual checks for `relax`, face-normal checks on settled meshes, Thm 11.
+
 ### Slot B: between Phase 7 and Phase 8 (decisions, then a small tile layer)
 - **Decisions first:** extend the exact type beyond Z[ω] or not (Ch. 4-5); where floats start (Ch. 5, 6); rational affine maps so `foldFaces` is not limited to 30° mirror lines (Ch. 1).
 - `core/tiling/`: vertex-figure enumeration, the lattice-support table, Table 5.1 lattice patches, edge orientation, subdivision (Ch. 4, 5).

@@ -2,11 +2,18 @@
  * The bar-and-hinge model of a crease pattern.
  *
  * Sits in the physical stage of the data flow (… → solve → simulate): it turns the exact crease
- * graph into the springs that `relax.ts` moves. Twist folds are not rigid-foldable, so the panels
- * must be allowed to stretch and bend a little; a bar-and-hinge model does that with axial springs
- * (bars) along every triangle edge and rotational springs (hinges) across every interior edge.
- * Everything here is a float, because the model is past the exact-lattice stage; positions come
- * from `toCartesian` and the one tolerance is `RENDER_TOLERANCE`.
+ * graph into the springs that `relax.ts` moves. Two models of a fold meet in this project (Lang,
+ * *Twists, Tilings, and Tessellations*, Table 1.1, p. 4): flat-foldable origami (Phases 3 to 5),
+ * where the paper ends flat and every fold angle is ±π, and polyhedral origami (this stage), where
+ * the facets stay flat and the fold angles vary from 0 to ±π. A pattern can be flat-foldable and
+ * still unreachable by a rigid motion between the two. Whether it is depends on the polygon and the
+ * assignment: no triangle twist is rigidly foldable (Lang §7.6.1, Eq. 7.81), a square twist is only
+ * for some assignments (M²V² and M³V, not the cyclic M⁴ or the alternating (MV)²), and the hexagon
+ * and star twists are undecided here. So the panels must be allowed to stretch and bend a little; a
+ * bar-and-hinge model does that with axial springs (bars) along every triangle edge and rotational
+ * springs (hinges) across every interior edge. Everything here is a float, because the model is
+ * past the exact-lattice stage; positions come from `toCartesian` and the one tolerance is
+ * `RENDER_TOLERANCE`.
  *
  * Each triangle corner also carries an angle spring (see `angle.ts`), which stops a flat obtuse
  * triangle from collapsing or turning inside out.

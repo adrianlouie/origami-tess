@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { hexagonTwist } from "../gadgets/hexagon-twist";
 import { starTwist } from "../gadgets/star-twist";
 import { triangleTwist } from "../gadgets/triangle-twist";
-import { subsetsOf, spokePattern } from "../solve/testing";
-import { faceAdjacency } from "./faces";
+import { sectorFaces, subsetsOf, spokePattern } from "../solve/testing";
+import { faceAdjacency, twoColor } from "./faces";
 import { componentCount, faceCount, type CreasePattern } from "./crease-pattern";
 
 /** Faces whose walk uses the directed pair u → v, found by scanning every walk. */
@@ -74,5 +74,50 @@ describe("faceAdjacency", () => {
 
   it("rejects a dangling crease, which has one face on both sides", () => {
     expect(() => faceAdjacency(spokePattern([0], "M"))).toThrow(RangeError);
+  });
+});
+
+describe("twoColor (Lang §1.1, pp. 14–15: the facets of a flat fold are two-coloured)", () => {
+  it("colours the two sides of one fold differently, whatever its assignment", () => {
+    for (const mark of ["M", "V", "U"] as const) {
+      expect(twoColor(spokePattern([0, 6], mark))).toEqual([0, 1]);
+    }
+  });
+
+  it("keeps the colour across a flat (F) crease", () => {
+    // Five spokes, one flat: four folded creases round the vertex, an even number, so it colours.
+    const cp = spokePattern([0, 2, 4, 6, 8], ["M", "F", "V", "M", "V"]);
+    const colours = twoColor(cp);
+    expect(colours).not.toBeNull();
+    const faces = sectorFaces(cp);
+    // Spoke 1 is the flat crease: the faces on either side of it carry one colour.
+    expect(colours![faces[0]!]).toBe(colours![faces[1]!]);
+    expect(colours![faces[1]!]).not.toBe(colours![faces[2]!]);
+    expect(colours![faces[2]!]).not.toBe(colours![faces[3]!]);
+  });
+
+  it("alternates round an even vertex and fails round an odd one, which cannot fold flat", () => {
+    const colours = twoColor(spokePattern([0, 3, 6, 9], "U"))!;
+    const faces = sectorFaces(spokePattern([0, 3, 6, 9], "U"));
+    const first = colours[faces[0]!]!;
+    expect(faces.map((f) => colours[f])).toEqual([first, 1 - first, first, 1 - first]);
+    // Three spokes make three faces that pairwise share a crease: an odd cycle (Lang p. 15).
+    expect(twoColor(spokePattern([0, 4, 8], "U"))).toBeNull();
+  });
+
+  it.each(patterns)("colours the faces of a pattern in two classes (%s)", (_, cp) => {
+    const colours = twoColor(cp);
+    expect(colours).not.toBeNull();
+    expect(colours).toHaveLength(cp.faces.length);
+    expect(colours![0]).toBe(0);
+    // Every crease between two faces separates the colours unless it is flat.
+    for (const { edge, left, right } of faceAdjacency(cp)) {
+      const flat = cp.edges[edge]!.assignment === "F";
+      expect(colours![left] === colours![right]).toBe(flat);
+    }
+  });
+
+  it("colours the faces of a sheet with no creases as one class", () => {
+    expect(twoColor(spokePattern([], "U"))).toEqual([0]);
   });
 });

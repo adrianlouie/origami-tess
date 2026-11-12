@@ -7,7 +7,8 @@
  * to the single-vertex conditions and can be checked against the validators.
  */
 
-import { add, eis, ZERO, type Eisenstein } from "../lattice/eisenstein";
+import { gcd } from "../lattice/direction";
+import { add, eis, equals, sub, ZERO, type Eisenstein } from "../lattice/eisenstein";
 import { hexDistance } from "../lattice/grid";
 import { hexagonFrame, rotate, type Crease } from "../gadgets/crease";
 import { triangleTwistCreases } from "../gadgets/triangle-twist";
@@ -138,4 +139,106 @@ export function freed(cp: CreasePattern): CreasePattern {
  */
 export function rawTriangleTwist(side: number, rayLength: number): CreasePattern {
   return fromSegments([], triangleTwistCreases(side, rayLength));
+}
+
+/** The unit steps of a straight lattice segment: its primitive vector repeated gcd(|a|, |b|) times. */
+function primitiveSteps(from: Eisenstein, to: Eisenstein, assignment: Assignment): Crease[] {
+  const delta = sub(to, from);
+  const n = gcd(Math.abs(delta.a), Math.abs(delta.b));
+  const step = eis(delta.a / n, delta.b / n);
+  return Array.from({ length: n }, (_, i) => ({
+    from: add(from, { a: step.a * i, b: step.b * i }),
+    to: add(from, { a: step.a * (i + 1), b: step.b * (i + 1) }),
+    assignment,
+  }));
+}
+
+/**
+ * Hull's impossible triangle (Lang, Fig. 1.40): Kawasaki and Maekawa hold at every vertex, yet no
+ * mountain/valley assignment exists.
+ *
+ * An equilateral triangle A = 0, B = side, C = side·(1 + ω) has a degree-4 vertex at each corner
+ * with sectors 60°, 90°, 120°, 90° (the 60° inside the triangle). The 60° sector is strictly
+ * smaller than both neighbours, so Big-Little-Big forces the two triangle sides at each corner to
+ * differ; three sides cannot pairwise differ (an odd cycle in the local-flat-foldability graph,
+ * Lang p. 47). The outer rays leave at 150° and 270° from A, 270° and 30° from B, and 30° and 150°
+ * from C, so they come in parallel pairs and never cross; they end on a hexagonal frame at ring
+ * points. All creases are unassigned.
+ *
+ * With `notch` the corner C is a vertex on the edge of the sheet instead (Fig. 1.45): the 120°
+ * sector between its two outer rays is cut away, leaving a 240° wedge of paper with sectors 90°,
+ * 60°, 90°, so the two interior corners A and B pass everything and only the border vertex C
+ * forces the contradiction. Without Big-Little-Big at border vertices the solver accepted it.
+ *
+ * @param side - triangle side in lattice units, a positive even integer: along a 30° ray the
+ *   distance from the origin changes by 2 per step, so rays from A and from C reach one common
+ *   ring only when the parities agree
+ * @param notch - cut away the 120° sector above C
+ * @returns the pattern and the frame radius it needed
+ * @throws RangeError if `side` is not a positive even safe integer
+ */
+export function hullTriangle(
+  side: number,
+  notch = false,
+): { pattern: CreasePattern; radius: number } {
+  if (!Number.isSafeInteger(side) || side < 2 || side % 2 !== 0) {
+    throw new RangeError(`Side must be a positive even safe integer, got ${side}`);
+  }
+  const A = ZERO;
+  const B = eis(side, 0);
+  const C = eis(side, side);
+  const NE = eis(2, 1);
+  const NW = eis(-1, 1);
+  const S = eis(-1, -2);
+  const rays: [Eisenstein, Eisenstein][] = [
+    [A, NW],
+    [A, S],
+    [B, S],
+    [B, NE],
+    [C, NE],
+    [C, NW],
+  ];
+  // The smallest frame radius at which every ray reaches a ring point exactly: a ray whose lattice
+  // steps jump over the ring would end off the frame. Along a 30° ray the distance grows by 2 per
+  // step, so the parity of the radius matters and some radii miss.
+  for (let radius = 2 * side + 2; radius <= 8 * side + 16; radius++) {
+    const ends = rays.map(([from, dir]) => {
+      let p = from;
+      while (hexDistance(p) < radius) p = add(p, dir);
+      return hexDistance(p) === radius ? p : null;
+    });
+    if (ends.some((p) => p === null)) continue;
+    const frame = hexagonFrame(radius);
+    const U = "U" as const;
+    const triangle = [
+      { from: A, to: B, assignment: U },
+      { from: B, to: C, assignment: U },
+      { from: C, to: A, assignment: U },
+    ];
+    if (!notch) {
+      const spokes = rays.map(([from], i) => ({ from, to: ends[i]!, assignment: U }));
+      return { pattern: fromSegments([], [...frame, ...triangle, ...spokes]), radius };
+    }
+    // Cut the notch: drop the ring arc between C's two outer rays and close the sheet through C.
+    const [left, right] = [ends[5]!, ends[4]!];
+    const start = frame.findIndex((c) => equals(c.from, left));
+    const stop = frame.findIndex((c) => equals(c.from, right));
+    const kept: Crease[] = [];
+    for (let i = start; i !== stop; i = (i + 1) % frame.length) kept.push(frame[i]!);
+    const spokes = rays.slice(0, 4).map(([from], i) => ({ from, to: ends[i]!, assignment: U }));
+    return {
+      pattern: fromSegments(
+        [],
+        [
+          ...kept,
+          ...primitiveSteps(right, C, "B"),
+          ...primitiveSteps(C, left, "B"),
+          ...triangle,
+          ...spokes,
+        ],
+      ),
+      radius,
+    };
+  }
+  throw new RangeError(`No frame radius fits the outer rays of a triangle of side ${side}`);
 }

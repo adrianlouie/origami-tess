@@ -3,6 +3,7 @@ import fc from "fast-check";
 import { eis, rot60, sub, type Eisenstein } from "./eisenstein";
 import {
   compareAngle,
+  completeDegree4,
   cross,
   gcd,
   halfPlane,
@@ -217,5 +218,33 @@ describe("windingNumber", () => {
         expect(wn !== 0).toBe(insideByRayCast(polygon, p));
       }),
     );
+  });
+});
+
+describe("completeDegree4 (Lang §1.4.4, Figs. 1.30–1.33)", () => {
+  const east = eis(1, 0);
+  const north = eis(1, 2);
+  const west = eis(-1, 0);
+  const south = eis(-1, -2);
+
+  it("completes the right vertex: 0°, 90°, 180° leaves 270°", () => {
+    expect(completeDegree4(east, north, west)).toEqual(south);
+  });
+
+  it("returns a primitive vector on the right ray, whatever the lengths of the three", () => {
+    // 0°, 60°, 180° with lengths 5, 3, 2: φ₄ = 180° + 0° + 180° − 60° = 300°, which is −ω.
+    expect(completeDegree4(eis(5, 0), eis(3, 3), eis(-2, 0))).toEqual(eis(0, -1));
+  });
+
+  it("returns null when the sector from the second ray to the third is 180° or more", () => {
+    // 0°, 30°, 270°: φ₄ = 180° + 0° + 270° − 30° = 60°, which is between the second and third.
+    expect(completeDegree4(east, eis(2, 1), south)).toBeNull();
+    // 0°, 90°, 270°: φ₄ = 0°, which is the first ray itself.
+    expect(completeDegree4(east, north, south)).toBeNull();
+  });
+
+  it("rejects three rays that are not in counter-clockwise order or not distinct", () => {
+    expect(completeDegree4(east, west, north)).toBeNull();
+    expect(completeDegree4(east, east, west)).toBeNull();
   });
 });

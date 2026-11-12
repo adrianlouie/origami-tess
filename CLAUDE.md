@@ -30,7 +30,7 @@ Status and next steps live in `docs/PLAN.md` and `docs/HANDOFF.md`, not here. Id
 - `core/` functions are pure; the pattern graph is treated as immutable.
 - Every math function has a test, and its docstring cites the theorem or formula it implements.
 - Prefer property-based tests for invariants (e.g. every generated vertex satisfies Kawasaki).
-- Terms: crease pattern (CP), mountain/valley (M/V), gadget (reusable twist unit), motif (tile seed).
+- Terms: crease pattern (CP), mountain/valley (M/V), gadget (reusable twist unit), motif (tile seed). More in `docs/GLOSSARY.md`.
 
 ## Comments and documentation
 - Every module opens with a header comment: its purpose and where it sits in the data flow.

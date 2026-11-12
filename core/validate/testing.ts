@@ -8,7 +8,9 @@
 
 import { toCartesian } from "../../app/render/cartesian";
 import { compareAngle } from "../lattice/direction";
-import { eis, rot60, type Eisenstein } from "../lattice/eisenstein";
+import { eis, rot60, ZERO, type Eisenstein } from "../lattice/eisenstein";
+import { hexagonFrame } from "../gadgets/crease";
+import { fromSegments, type Assignment, type CreasePattern } from "../pattern/crease-pattern";
 import { kawasakiFlat, maekawaFlat } from "./local-flat-foldability";
 
 /** A mountain or valley crease. */
@@ -72,16 +74,21 @@ export function allAssignments(n: number): MV[][] {
 const EPS = 1e-9;
 const PERMS = new Map<number, number[][]>();
 
-/** Folded geometry of a vertex: crease positions and the extent of each sector on the line. */
-function foldModel(dirs: readonly Eisenstein[]) {
-  const n = dirs.length;
+/**
+ * Folded geometry of a vertex: crease positions and the extent of each sector on the line.
+ *
+ * With `open` the directions are the rays of a wedge of paper, first and last being its two edges,
+ * so there are one fewer sectors than rays and no sector closes the circle.
+ */
+function foldModel(dirs: readonly Eisenstein[], open = false) {
+  const n = open ? dirs.length - 1 : dirs.length;
   const theta = dirs.map((d) => {
     const p = toCartesian(d);
     const t = Math.atan2(p.y, p.x);
     return t < 0 ? t + 2 * Math.PI : t;
   });
-  const width = theta.map((t, i) => {
-    const next = theta[(i + 1) % n]!;
+  const width = theta.slice(0, n).map((t, i) => {
+    const next = theta[(i + 1) % dirs.length]!;
     return next - t + (next <= t ? 2 * Math.PI : 0);
   });
   const pos: number[] = [0];
@@ -116,15 +123,16 @@ function checkOrder(
   { n, pos, lo, hi }: ReturnType<typeof foldModel>,
   assigns: readonly MV[],
   rank: readonly number[],
+  first = 0,
 ): boolean {
   const pairLo: number[] = [];
   const pairHi: number[] = [];
-  for (let j = 0; j < n; j++) {
+  for (let j = first; j < n; j++) {
     const a = (j + n - 1) % n;
     const above = a % 2 === 0 ? assigns[j] === "V" : assigns[j] === "M";
     if (rank[j]! > rank[a]! !== above) return false;
-    pairLo.push(Math.min(rank[a]!, rank[j]!));
-    pairHi.push(Math.max(rank[a]!, rank[j]!));
+    pairLo[j] = Math.min(rank[a]!, rank[j]!);
+    pairHi[j] = Math.max(rank[a]!, rank[j]!);
     for (let c = 0; c < n; c++) {
       if (c === a || c === j) continue;
       if (lo[c]! + EPS < pos[j]! && pos[j]! < hi[c]! - EPS) {
@@ -132,7 +140,7 @@ function checkOrder(
       }
     }
   }
-  for (let j = 0; j < n; j++) {
+  for (let j = first; j < n; j++) {
     for (let k = j + 1; k < n; k++) {
       if (Math.abs(pos[j]! - pos[k]!) > EPS) continue;
       const [a, b, c, d] = [pairLo[j]!, pairHi[j]!, pairLo[k]!, pairHi[k]!];
@@ -154,6 +162,21 @@ export function foldsFlat(dirs: readonly Eisenstein[], assigns: readonly MV[]): 
   return PERMS.get(n)!.some((rank) => checkOrder(model, assigns, rank));
 }
 
+/**
+ * Brute-force reference for a wedge of paper at the edge of a sheet: can it fold flat?
+ *
+ * The directions are the rays counter-clockwise, the first and last being the two paper edges, and
+ * `assigns[i]` is the crease along ray i (entries 0 and last are never read). Sector i lies between
+ * rays i and i + 1; there is no closing sector, so no Kawasaki or Maekawa condition applies and
+ * only the layer rules decide. Floats are fine: it is a test oracle.
+ */
+export function wedgeFoldsFlat(dirs: readonly Eisenstein[], assigns: readonly MV[]): boolean {
+  const sectors = dirs.length - 1;
+  if (!PERMS.has(sectors)) PERMS.set(sectors, permutations(sectors));
+  const model = foldModel(dirs, true);
+  return PERMS.get(sectors)!.some((rank) => checkOrder(model, assigns, rank, 1));
+}
+
 /** Every Kawasaki vertex of the given degree drawn from POOL, with every Maekawa assignment. */
 export function candidates(degree: number): { dirs: Eisenstein[]; assigns: MV[] }[] {
   const out: { dirs: Eisenstein[]; assigns: MV[] }[] = [];
@@ -164,4 +187,32 @@ export function candidates(degree: number): { dirs: Eisenstein[]; assigns: MV[] 
     for (const assigns of assignments) out.push({ dirs, assigns });
   }
   return out;
+}
+
+/**
+ * A sheet with two whole creases that meet at a vertex on its edge, leaving a small sector there.
+ *
+ * The frame is the radius-2 hexagon. P = 2 + ω is the middle of one side, so the paper there is a
+ * 180° wedge between the frame edges at 120° and 300°. A crease `a` runs from P west along 180°
+ * to the frame point at −1 + ω, and a crease `b` runs from P at 210° through the origin to the
+ * opposite frame point. The wedge has sectors 60°, 30° and 90°, so the 30° sector is strictly
+ * smaller than both neighbours and its two creases are the Big-Little-Big pair (Lang, p. 52).
+ * Every other interior vertex has degree 2 and lies on one straight crease, so the only vertex
+ * with a condition beyond "both sides of a straight crease agree" is P.
+ *
+ * @param a - assignment of every unit edge of the 180° crease
+ * @param b - assignment of both edges of the 210° crease
+ */
+export function borderLinePattern(a: Assignment, b: Assignment): CreasePattern {
+  const p = eis(2, 1);
+  const west = [p, eis(1, 1), eis(0, 1), eis(-1, 1)];
+  return fromSegments(
+    [ZERO],
+    [
+      ...hexagonFrame(2),
+      ...west.slice(1).map((to, i) => ({ from: west[i]!, to, assignment: a })),
+      { from: p, to: ZERO, assignment: b },
+      { from: ZERO, to: eis(-2, -1), assignment: b },
+    ],
+  );
 }
