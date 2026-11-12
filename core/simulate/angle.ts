@@ -12,7 +12,12 @@
 /** A triangle corner: the angle at `b` between the rays to `a` and to `c`. */
 export type Corner = { readonly a: number; readonly b: number; readonly c: number };
 
-/** Below this |u × w| the corner is treated as flat and its gradient is taken as zero. */
+/**
+ * Below this |u × w| the corner is treated as flat and its gradient is taken as zero. The cross
+ * product is twice the triangle's area, in squared lattice units (unit edge length), so this is an
+ * absolute threshold, not a relative one; it is far below any triangle of a lattice pattern (the
+ * smallest has area √3/4) and only guards the division by |u × w| for a collapsed triangle.
+ */
 const FLAT = 1e-12;
 
 /**

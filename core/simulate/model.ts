@@ -46,7 +46,11 @@ export type BarHingeParams = {
   readonly damping: number;
 };
 
-/** Origami Simulator's axial, crease, facet and damping values (Ghassaei et al. 2018, §3), plus an angle spring. */
+/**
+ * Origami Simulator's defaults, `axialStiffness` 20, `creaseStiffness` 0.7, `faceStiffness` 0.2 and
+ * `percentDamping` 0.45 (`js/globals.js` in github.com/amandaghassaei/OrigamiSimulator; checked in
+ * the 6.3 audit), plus our own corner angle spring, which the original does not have.
+ */
 export const DEFAULT_PARAMS: BarHingeParams = {
   axial: 20,
   crease: 0.7,
@@ -89,7 +93,14 @@ export type BarHingeModel = {
   readonly pinned: readonly number[];
   /** Stiffness seen by each node, Σ bar k + Σ hinge and corner k·|∂/∂x|² at rest; sets dt. */
   readonly nodeStiffness: Float64Array;
-  /** Time step, 1 / (2π·ω_max) with ω_max = √(max nodeStiffness / mass) (Ghassaei 2018). */
+  /**
+   * Time step, 1 / (2π·ω_max) with ω_max = √(max nodeStiffness / mass). Origami Simulator uses the
+   * same form, 0.9 / (2π·f_max) with f_max its largest beam natural frequency (`calcDt` in
+   * `dynamicSolver.js`); we drop the 0.9 because dt is already about 0.16/ω_max, an order of
+   * magnitude inside the stability limit dt < 2/ω of symplectic Euler. `nodeStiffness` estimates
+   * ω_max² rather than bounding it, so stability is checked by the tests (every gadget settles at
+   * every fold) and `relax` throws if the state ever diverges.
+   */
   readonly dt: number;
   /**
    * Viscous coefficient c, the same for every node: c = 2ζ·√(k_soft·m). Critical damping of the
@@ -222,7 +233,9 @@ export function barHingeModel(
       nodeStiffness[node]! += corner.stiffness * s;
     });
   }
-  const top = Math.max(...nodeStiffness);
+  // A loop, not Math.max(...array): spreading throws RangeError past about 10^5 arguments.
+  let top = 0;
+  for (const k of nodeStiffness) top = Math.max(top, k);
   const dt = 1 / (2 * Math.PI * Math.sqrt(top / MASS));
   const damping = 2 * params.damping * Math.sqrt(Math.min(params.crease, params.facet) * MASS);
 
@@ -248,8 +261,18 @@ function pinnedTriangle(rest: Float64Array, triangles: readonly TriangleIndices[
     xs.push(rest[i]!);
     ys.push(rest[i + 1]!);
   }
-  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
-  const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  // Loops, not Math.min(...xs): spreading throws RangeError past about 10^5 arguments.
+  const middle = (v: readonly number[]): number => {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const x of v) {
+      lo = Math.min(lo, x);
+      hi = Math.max(hi, x);
+    }
+    return (lo + hi) / 2;
+  };
+  const cx = middle(xs);
+  const cy = middle(ys);
   let best: TriangleIndices = triangles[0]!;
   let bestDist = Infinity;
   for (const t of triangles) {

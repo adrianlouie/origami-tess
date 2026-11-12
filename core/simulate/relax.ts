@@ -128,7 +128,8 @@ export function forces(
  * @param fold - fold fraction, 0 to 1
  * @param options - step cap and tolerance
  * @returns the new state, the number of steps and whether it settled
- * @throws RangeError if `fold` is outside [0, 1] or an option is not positive
+ * @throws RangeError if `fold` is outside [0, 1], an option is not positive, or the integration
+ *   diverges (a non-finite speed or force, which means `dt` is above the stability limit)
  */
 export function relax(
   model: BarHingeModel,
@@ -154,7 +155,16 @@ export function relax(
   let steps = 0;
   let settled = false;
   while (steps < maxSteps) {
-    forces(model, s, fold, force);
+    try {
+      forces(model, s, fold, force);
+    } catch (error) {
+      // A hinge whose axis or wing has collapsed means the state has left the folding regime, which
+      // is what an unstable time step looks like before the numbers reach NaN.
+      if (!(error instanceof RangeError)) throw error;
+      throw new RangeError(`relaxation diverged at step ${steps}: ${error.message}`, {
+        cause: error,
+      });
+    }
     let fastest = 0;
     let strongest = 0;
     for (let n = 0; n < nodes; n++) {
@@ -170,6 +180,11 @@ export function relax(
       }
     }
     steps++;
+    // Max of a NaN is NaN and NaN < tolerance is false, so a blown-up state would otherwise run to
+    // maxSteps (or fail later with an unrelated geometry error from `foldAngle`).
+    if (!Number.isFinite(fastest) || !Number.isFinite(strongest)) {
+      throw new RangeError(`relaxation diverged after ${steps} steps: the time step is too large`);
+    }
     if (fastest < tolerance && strongest < tolerance) {
       settled = true;
       break;

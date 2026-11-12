@@ -98,6 +98,18 @@ describe("relax", () => {
     expect(result.angles[crease]).toBeLessThan(Math.PI + 0.01);
   });
 
+  it("throws instead of spinning to maxSteps when the integration diverges", () => {
+    // dt far above 2/ω_max makes symplectic Euler unstable, so positions blow up to NaN. NaN fails
+    // the `< tolerance` test forever, so without a guard `relax` would burn all its steps and a
+    // viewer driver would never be done.
+    const unstable = { ...hexagon, dt: 10 };
+    const start = Date.now();
+    expect(() => relax(unstable, restState(unstable), 0.5, { maxSteps: 100_000 })).toThrow(
+      /diverged/,
+    );
+    expect(Date.now() - start).toBeLessThan(2000);
+  });
+
   it("continues a state: relaxing twice at one fold agrees with relaxing once", () => {
     const once = relax(hexagon, restState(hexagon), 0.4);
     const twice = relax(hexagon, once, 0.4);
