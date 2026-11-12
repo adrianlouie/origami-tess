@@ -108,12 +108,34 @@ describe("pdfDocument", () => {
     expect(() => pdfDocument([page("é")])).toThrow(RangeError);
   });
 
+  it("ends every stream on a newline, so the last operator never glues to endstream", () => {
+    const bytes = latin(pdfDocument([{ width: 100, height: 100, content: "0 0 m 1 1 l S" }]));
+    expect(bytes).toContain("S\nendstream");
+    expect(bytes).not.toContain("Sendstream");
+    // /Length counts that newline, and the xref still points at every object.
+    const length = Number(/\/Length (\d+)/.exec(bytes)![1]);
+    expect(length).toBe("0 0 m 1 1 l S\n".length);
+  });
+
+  it("refuses text that names the font in a document built without it", () => {
+    const content = textBlock("hi", 1, 2, 10);
+    expect(() => pdfDocument([{ width: 100, height: 100, content }])).toThrow(RangeError);
+    expect(() => pdfDocument([{ width: 100, height: 100, content }], { font: true })).not.toThrow();
+  });
+
   it("refuses a document with no pages", () => {
     expect(() => pdfDocument([])).toThrow(RangeError);
   });
 });
 
 describe("content helpers", () => {
+  it("refuses numbers a PDF cannot hold: NaN, Infinity and exponent forms", () => {
+    expect(() => num(Number.NaN)).toThrow(RangeError);
+    expect(() => num(Number.POSITIVE_INFINITY)).toThrow(RangeError);
+    expect(() => num(1e21)).toThrow(RangeError);
+    expect(num(123456789012)).toBe("123456789012.000");
+  });
+
   it("formats numbers to three decimals without -0", () => {
     expect(num(1.23456)).toBe("1.235");
     expect(num(-0.0001)).toBe("0.000");

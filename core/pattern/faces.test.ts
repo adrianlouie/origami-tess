@@ -4,7 +4,7 @@ import { starTwist } from "../gadgets/star-twist";
 import { triangleTwist } from "../gadgets/triangle-twist";
 import { subsetsOf, spokePattern } from "../solve/testing";
 import { faceAdjacency } from "./faces";
-import type { CreasePattern } from "./crease-pattern";
+import { componentCount, faceCount, type CreasePattern } from "./crease-pattern";
 
 /** Faces whose walk uses the directed pair u → v, found by scanning every walk. */
 function facesUsing(cp: CreasePattern, u: number, v: number): number[] {
@@ -39,6 +39,15 @@ describe("faceAdjacency", () => {
         expect(found).toBeUndefined();
       }
     });
+  });
+
+  it.each(patterns)("agrees with Euler's formula and the walk lengths (%s)", (_, cp) => {
+    // V - E + F = 1 + C counting the unbounded face (Euler 1758).
+    expect(cp.vertices.length - cp.edges.length + faceCount(cp)).toBe(1 + componentCount(cp));
+    // Every crease has one or two bounded sides and each side is one step of one walk, so the
+    // walks hold E + (creases with two bounded sides) steps, which is E + adjacencies.
+    const steps = cp.faces.reduce((sum, walk) => sum + walk.length, 0);
+    expect(steps).toBe(cp.edges.length + faceAdjacency(cp).length);
   });
 
   it("is listed once per crease, in increasing edge order, between two different faces", () => {

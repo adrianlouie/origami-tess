@@ -6,9 +6,11 @@
  * something changed. The one animation loop runs only while the fold simulation is settling, and
  * stops as soon as the driver is done, so an idle page does no work.
  *
- * The export buttons download the selected gadget's flat crease pattern or its folding steps (`app/export/download.ts`).
+ * The export buttons download the selected gadget's flat crease pattern or its folding steps
+ * (`app/export/download.ts`). What the step panel shows is worked out in `step-panel.ts`.
  *
- * URL parameters, for screenshots: `?gadget=<index>` and `?fold=<percent>`.
+ * URL parameters, for screenshots: `?gadget=<index>`, `?fold=<percent>` and `?step=<n>` (one-based,
+ * like the captions; a step sets the fold itself, so it overrides `?fold=`).
  */
 
 import * as THREE from "three";
@@ -31,7 +33,7 @@ import { GADGET_ENTRIES } from "./gadgets";
 import { pointerToRig } from "./input";
 import { applyRig, buildScene, setPaperColor, setStepHighlight, updateSheet } from "./scene";
 import { foldSteps, type FoldStep } from "../../core/pattern/fold-steps";
-import { stepCaption, stepHighlight } from "../render/step-text";
+import { parseStepParam, stepView } from "./step-panel";
 
 /** Wall-clock time one frame may spend relaxing, in milliseconds. */
 const FRAME_BUDGET_MS = 10;
@@ -40,6 +42,8 @@ const MIN_STEPS = 100;
 const MAX_STEPS = 5000;
 /** Most ticks a `?fold=` deep link may spend settling before the page gives up and animates. */
 const DEEP_LINK_TICKS = 400;
+/** How long a download's object URL stays valid after the click, in milliseconds. */
+const REVOKE_DELAY_MS = 10_000;
 
 const FOV_DEGREES = 40;
 const fovY = THREE.MathUtils.degToRad(FOV_DEGREES);
@@ -141,7 +145,16 @@ function size(): { width: number; height: number } {
   return { width: Math.max(width, 1), height: Math.max(height, 1) };
 }
 
-function load(index: number, foldPercent = 0, instant = false): void {
+/**
+ * Loads a gadget. `stepParam` is the raw `?step=` text; a step in range sets the fold target
+ * itself and so overrides `foldPercent`.
+ */
+function load(
+  index: number,
+  foldPercent = 0,
+  instant = false,
+  stepParam: string | null = null,
+): void {
   const entry = GADGET_ENTRIES[index];
   if (!entry) return;
   cancelAnimationFrame(frame);
@@ -164,10 +177,11 @@ function load(index: number, foldPercent = 0, instant = false): void {
   driver = foldDriver(cp);
   steps = MIN_STEPS;
   foldList = foldSteps(cp);
-  stepIndex = -1;
-  showStep(-1, false);
-  slider!.value = String(foldPercent);
-  driver = setTarget(driver, sliderToFold(foldPercent));
+  const view = stepView(foldList, parseStepParam(stepParam, foldList.length));
+  showStep(view.index, false);
+  const percent = view.index >= 0 ? view.foldPercent : foldPercent;
+  slider!.value = String(percent);
+  driver = setTarget(driver, sliderToFold(percent));
   if (instant) {
     try {
       driver = settle(driver, MAX_STEPS, DEEP_LINK_TICKS);
@@ -187,24 +201,23 @@ function load(index: number, foldPercent = 0, instant = false): void {
 
 /**
  * Shows folding step `index` (-1 for none): its caption and highlight, and the fold target, which
- * is 0 for the pre-crease steps and 100 percent for the collapse.
+ * is 0 for the pre-crease steps and 100 percent for the collapse. The canvas is redrawn even when
+ * the simulation has stopped, so the highlight still follows Prev and Next.
  */
 function showStep(index: number, redraw = true): void {
-  stepIndex = Math.max(-1, Math.min(foldList.length - 1, index));
-  const step = foldList[stepIndex];
-  stepText!.textContent = step
-    ? stepCaption(foldList, stepIndex)
-    : "Press Next for the folding steps.";
-  stepPrev!.disabled = stepIndex < 0;
-  stepNext!.disabled = stepIndex >= foldList.length - 1;
-  const highlight = step ? stepHighlight(step) : null;
-  setStepHighlight(scene, highlight?.segments ?? null, highlight?.color);
-  if (!redraw || !driver) return;
-  const percent = step?.kind === "collapse" ? 100 : 0;
-  slider!.value = String(percent);
-  driver = setTarget(driver, sliderToFold(percent));
-  showReadout();
-  wake();
+  const view = stepView(foldList, index);
+  stepIndex = view.index;
+  stepText!.textContent = view.caption;
+  stepPrev!.disabled = view.prevDisabled;
+  stepNext!.disabled = view.nextDisabled;
+  setStepHighlight(scene, view.highlight?.segments ?? null, view.highlight?.color);
+  if (!redraw) return;
+  if (driver) {
+    slider!.value = String(view.foldPercent);
+    driver = setTarget(driver, sliderToFold(view.foldPercent));
+    showReadout();
+    wake();
+  }
   draw();
 }
 
@@ -243,13 +256,19 @@ reset.addEventListener("click", () => {
 /** Downloads the selected gadget's flat crease pattern or its folding steps in the given format. */
 function download(kind: ExportKind): void {
   if (!current) return;
-  const file = exportFile(current.cp, current.name, kind, pageSize!.value as PageName);
-  const url = URL.createObjectURL(new Blob([file.data], { type: file.mime }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = file.filename;
-  link.click();
-  URL.revokeObjectURL(url);
+  try {
+    const file = exportFile(current.cp, current.name, kind, pageSize!.value as PageName);
+    const url = URL.createObjectURL(new Blob([file.data], { type: file.mime }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = file.filename;
+    link.click();
+    // Revoking at once can cancel the download in some browsers; give it a moment.
+    setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
+  } catch (error) {
+    console.error(error);
+    readout!.textContent = `export failed: ${error instanceof Error ? error.message : String(error)}`;
+  }
 }
 exportSvg.addEventListener("click", () => download("svg"));
 exportPdf.addEventListener("click", () => download("pdf"));
@@ -296,4 +315,4 @@ const params = new URLSearchParams(window.location.search);
 const first = parseGadgetParam(params.get("gadget"), GADGET_ENTRIES.length);
 picker.value = String(first);
 resize();
-load(first, Math.round(parseFoldParam(params.get("fold")) * 100), true);
+load(first, Math.round(parseFoldParam(params.get("fold")) * 100), true, params.get("step"));

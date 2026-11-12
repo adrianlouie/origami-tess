@@ -23,8 +23,19 @@ export type PdfPage = {
   readonly content: string;
 };
 
-/** A number for a content stream: three decimals (1/1000 point), no exponent, no "-0". */
+/** The largest magnitude `num` writes; `toFixed` switches to exponent form at 1e21. */
+const MAX_NUMBER = 1e15;
+
+/**
+ * A number for a content stream: three decimals (1/1000 point), no exponent, no "-0".
+ *
+ * @throws RangeError for NaN, an infinity or a magnitude of 1e15 or more, none of which a PDF
+ *   content stream can hold (and far beyond any page)
+ */
 export function num(n: number): string {
+  if (!Number.isFinite(n) || Math.abs(n) >= MAX_NUMBER) {
+    throw new RangeError(`Cannot write ${n} in a PDF content stream`);
+  }
   const s = n.toFixed(3);
   return Number(s) === 0 ? "0.000" : s;
 }
@@ -159,8 +170,10 @@ export function strokeBlock(
  *
  * @param pages - at least one
  * @param opts - `font`: add Helvetica as `/F1` for `textBlock`
- * @returns the file bytes
- * @throws RangeError for no pages or any non-ASCII character in a content stream
+ * @returns the file bytes; a content stream that does not end on a newline gets one, so the last
+ *   operator never runs into `endstream`
+ * @throws RangeError for no pages, any non-ASCII character in a content stream, or text that
+ *   uses `/F1` when `font` is off (the page would name a font it does not have)
  */
 export function pdfDocument(
   pages: readonly PdfPage[],
@@ -175,10 +188,14 @@ export function pdfDocument(
     `<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`,
     ...pages.flatMap((p, i) => {
       if (/[^\n -~]/.test(p.content)) throw new RangeError("Page content must be ASCII");
+      if (!opts.font && /\/F1 /.test(p.content)) {
+        throw new RangeError("Page content uses the font /F1 but the document has none");
+      }
+      const content = p.content === "" || p.content.endsWith("\n") ? p.content : `${p.content}\n`;
       return [
         `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${num(p.width)} ${num(p.height)}] /Resources ${resources} /Contents ${4 + 2 * i} 0 R >>`,
         // `Length` counts the stream's bytes between the "stream" and "endstream" keywords' newlines.
-        `<< /Length ${p.content.length} >>\nstream\n${p.content}endstream`,
+        `<< /Length ${content.length} >>\nstream\n${content}endstream`,
       ];
     }),
     ...(opts.font

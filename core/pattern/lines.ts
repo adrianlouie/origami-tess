@@ -42,6 +42,8 @@ export function creaseLines(cp: CreasePattern): readonly CreaseLine[] {
     const same = cp.rotation[v]!.filter((f) => cp.edges[f]!.assignment === a);
     if (same.length !== 2) return undefined;
     const f = same[0] === e ? same[1]! : same[0]!;
+    // `primitive` needs a non-zero vector: an edge never has zero length, because `crease-pattern`
+    // rejects self-loops and two vertices at one position.
     const away = (g: number) => {
       const { v0, v1 } = cp.edges[g]!;
       return primitive(sub(cp.vertices[v0 === v ? v1 : v0]!, cp.vertices[v]!));

@@ -72,9 +72,12 @@ function scaleFor(w: number, h: number, pw: number, ph: number, m: number, top: 
  * @param page - page size name
  * @param margin - margin on every side, in points; less than half the shorter page side
  * @param orientation - portrait, landscape or auto
- * @param reserveTop - extra points kept free along the top edge, for a caption (default 0)
+ * @param reserveTop - extra points kept free along the top edge, for a caption (default 0); the
+ *   band plus both margins must be shorter than the page height in the orientation used, so with
+ *   `auto` an orientation too short for it is skipped
  * @returns the page size and the lattice-to-page mapping
- * @throws RangeError for an unknown page or orientation, a bad margin, or an inverted extent
+ * @throws RangeError for an unknown page or orientation, a bad margin, a band that fits no
+ *   allowed orientation, or an inverted extent
  */
 export function fitToPage(
   extent: Extent,
@@ -83,18 +86,17 @@ export function fitToPage(
   orientation: Orientation,
   reserveTop = 0,
 ): PageFit {
+  // Object.hasOwn: a plain lookup would accept "toString" and friends from the prototype.
+  if (!Object.hasOwn(PAGE_SIZES, page)) throw new RangeError(`Unknown page size ${String(page)}`);
   const size = PAGE_SIZES[page];
-  if (size === undefined) throw new RangeError(`Unknown page size ${String(page)}`);
   if (!["auto", "portrait", "landscape"].includes(orientation)) {
     throw new RangeError(`Unknown orientation ${String(orientation)}`);
   }
   if (!Number.isFinite(margin) || margin < 0 || 2 * margin >= size.width) {
     throw new RangeError(`margin must be in [0, ${size.width / 2}), got ${margin}`);
   }
-  if (!Number.isFinite(reserveTop) || reserveTop < 0 || reserveTop + 2 * margin >= size.width) {
-    throw new RangeError(
-      `reserveTop must be in [0, ${size.width - 2 * margin}), got ${reserveTop}`,
-    );
+  if (!Number.isFinite(reserveTop) || reserveTop < 0) {
+    throw new RangeError(`reserveTop must be a non-negative number, got ${reserveTop}`);
   }
   const w = extent.maxX - extent.minX;
   const h = extent.maxY - extent.minY;
@@ -102,9 +104,25 @@ export function fitToPage(
 
   const portrait = { width: size.width, height: size.height };
   const landscape = { width: size.height, height: size.width };
-  const sp = scaleFor(w, h, portrait.width, portrait.height, margin, reserveTop);
-  const sl = scaleFor(w, h, landscape.width, landscape.height, margin, reserveTop);
-  const useLandscape = orientation === "landscape" || (orientation === "auto" && sl > sp);
+  // The band takes height, so whether it fits depends on the orientation: it can fit portrait
+  // (the long side is up) and not landscape.
+  const roomPortrait = reserveTop + 2 * margin < portrait.height;
+  const roomLandscape = reserveTop + 2 * margin < landscape.height;
+  const wantLandscape = orientation !== "portrait" && roomLandscape;
+  const wantPortrait = orientation !== "landscape" && roomPortrait;
+  if (!wantLandscape && !wantPortrait) {
+    throw new RangeError(
+      `the caption band (reserveTop ${reserveTop} pt) plus both margins (${2 * margin} pt) leaves ` +
+        `no room on a ${orientation} ${page} page`,
+    );
+  }
+  const sp = wantPortrait
+    ? scaleFor(w, h, portrait.width, portrait.height, margin, reserveTop)
+    : -1;
+  const sl = wantLandscape
+    ? scaleFor(w, h, landscape.width, landscape.height, margin, reserveTop)
+    : -1;
+  const useLandscape = wantLandscape && (!wantPortrait || sl > sp);
   const { width, height } = useLandscape ? landscape : portrait;
   const scale = useLandscape ? sl : sp;
   return {

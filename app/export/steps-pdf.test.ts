@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import fc from "fast-check";
 import { foldSteps } from "../../core/pattern/fold-steps";
 import { creaseLines } from "../../core/pattern/lines";
 import { toCartesian } from "../render/cartesian";
@@ -183,5 +184,41 @@ describe("foldStepsToPdf options", () => {
   it("escapes parentheses in the name and rejects a non-ASCII one", () => {
     expect(latin(foldStepsToPdf(cp, "A (b)"))).toContain("A \\(b\\)");
     expect(() => foldStepsToPdf(cp, "Café")).toThrow(RangeError);
+  });
+});
+
+describe("foldStepsToPdf over random options (property)", () => {
+  const cp = GADGET_ENTRIES[0]!.build();
+  const steps = foldSteps(cp);
+
+  it("keeps every page one size, every line inside the margins and below the caption", () => {
+    fc.assert(
+      fc.property(
+        fc.constantFrom("a4", "letter"),
+        fc.constantFrom("auto", "portrait", "landscape"),
+        fc.integer({ min: 0, max: 120 }),
+        (page, orientation, margin) => {
+          const pdf = latin(foldStepsToPdf(cp, "Hexagon twist", { page, orientation, margin }));
+          const all = pages(pdf);
+          expect(all).toHaveLength(1 + steps.length);
+          // Every caption baseline on a page, to compare with the drawing below it.
+          const streams = [...pdf.matchAll(/stream\n([\s\S]*?)endstream/g)].map((m) => m[1]!);
+          all.forEach((pg, i) => {
+            expect([pg.w, pg.h]).toEqual([all[0]!.w, all[0]!.h]);
+            const xs = pg.blocks.flatMap((b) => b.segs.flatMap((q) => [q[0], q[2]]));
+            const ys = pg.blocks.flatMap((b) => b.segs.flatMap((q) => [q[1], q[3]]));
+            expect(Math.min(...xs)).toBeGreaterThanOrEqual(margin - 1e-3);
+            expect(Math.max(...xs)).toBeLessThanOrEqual(pg.w - margin + 1e-3);
+            expect(Math.min(...ys)).toBeGreaterThanOrEqual(margin - 1e-3);
+            const baselines = [...streams[i]!.matchAll(/([\d.-]+) ([\d.-]+) Td/g)].map((t) =>
+              Number(t[2]),
+            );
+            expect(baselines.length).toBeGreaterThan(0);
+            expect(Math.max(...ys)).toBeLessThanOrEqual(Math.min(...baselines) + 1e-3);
+          });
+        },
+      ),
+      { numRuns: 25 },
+    );
   });
 });

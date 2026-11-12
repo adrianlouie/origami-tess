@@ -61,7 +61,7 @@ export function stepCaption(
       return `${head}${turn}Fold and unfold ${where} (mountains from the front).`;
     }
     case "collapse":
-      return `${head}Collapse. Push the pattern together so every crease folds at once.${medium === "viewer" ? " Drag the slider to watch." : ""}`;
+      return `${head}Collapse. Push the pattern together so every crease folds at once.${medium === "viewer" ? " The slider shows the fold; drag it to go back." : ""}`;
   }
 }
 

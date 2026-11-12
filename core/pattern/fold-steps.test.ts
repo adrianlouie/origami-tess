@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
-import { hexagonFrame } from "../gadgets/crease";
+import { hexagonFrame, rotate } from "../gadgets/crease";
 import { hexagonTwist } from "../gadgets/hexagon-twist";
 import { starTwist } from "../gadgets/star-twist";
 import { triangleTwist } from "../gadgets/triangle-twist";
@@ -194,6 +194,51 @@ describe("foldSteps edge cases", () => {
 
   it("is deterministic", () => {
     expect(foldSteps(hexagonTwist(1, 2))).toEqual(foldSteps(hexagonTwist(1, 2)));
+  });
+
+  it("gives one grid segment per direction and the collapse for a one-face sheet", () => {
+    // The side-1 hexagon: 2R - 1 = 1 segment per direction, each one 2 unit steps long.
+    const steps = foldSteps(fromSegments([], hexagonFrame(1)));
+    expect(steps.map((s) => s.kind)).toEqual(["grid", "grid", "grid", "collapse"]);
+    for (const step of steps) if (step.kind === "grid") expect(step.segments).toHaveLength(1);
+  });
+
+  // A ray from the centre of the side-2 hexagon to its border, in one assignment.
+  const ray = (assignment: "M" | "V") => [
+    { from: eis(0, 0), to: eis(1, 0), assignment },
+    { from: eis(1, 0), to: eis(2, 0), assignment },
+  ];
+
+  it.each(["M", "V"] as const)("gives one crease step for a pattern of %s creases only", (a) => {
+    const steps = foldSteps(fromSegments([], [...hexagonFrame(2), ...ray(a)]));
+    expect(steps.map((s) => s.kind)).toEqual(["grid", "grid", "grid", "crease", "collapse"]);
+    const crease = steps[3]!;
+    expect(crease.kind === "crease" && crease.assignment).toBe(a);
+  });
+});
+
+describe("sheetGrid of a notched sheet", () => {
+  // Five of the six triangles around a centre c: the sheet is not convex, and the unit step
+  // between h5 and h0 has both end points in the sheet but its midpoint in the notch.
+  const h = (k: number) => rotate(eis(1, 0), k);
+  const c = eis(0, 0);
+  const notched = fromSegments(
+    [],
+    [
+      { from: c, to: h(0), assignment: "B" as const },
+      ...[0, 1, 2, 3, 4].map((k) => ({ from: h(k), to: h(k + 1), assignment: "B" as const })),
+      { from: h(5), to: c, assignment: "B" as const },
+      ...[1, 2, 3, 4].map((k) => ({ from: c, to: h(k), assignment: "U" as const })),
+    ],
+  );
+
+  it("covers exactly the interior spokes and skips the step across the notch", () => {
+    const covered = new Set<string>();
+    for (const d of GRID_DIRECTIONS) {
+      for (const step of unitSteps(sheetGrid(notched, d), d)) covered.add(step);
+    }
+    expect([...covered].sort()).toEqual([1, 2, 3, 4].map((k) => stepKey(c, h(k))).sort());
+    expect(covered.has(stepKey(h(5), h(0)))).toBe(false);
   });
 });
 

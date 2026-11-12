@@ -61,7 +61,7 @@ export function foldStepsToPdf(
   const legendLines = wrapText(LEGEND, BODY, textWidth);
   const captions = steps.map((_, i) => wrapText(stepCaption(steps, i, "print"), BODY, textWidth));
   const coverBand = titleLines.length * TITLE_LEADING + legendLines.length * LEADING + 6;
-  const captionBand = Math.max(...captions.map((c) => c.length), 1) * LEADING + 6;
+  const captionBand = captions.reduce((m, c) => Math.max(m, c.length), 1) * LEADING + 6;
   const band = Math.max(coverBand, captionBand);
 
   const fit = fitToPage(extent, page, margin, fixed, band);

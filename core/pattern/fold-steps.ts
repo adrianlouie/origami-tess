@@ -60,6 +60,17 @@ function inClosedSheet(cp: CreasePattern, p2: Eisenstein): boolean {
   });
 }
 
+/** Smallest and largest of a non-empty list, by a loop so a long list cannot overflow the stack. */
+function range(xs: readonly number[]): readonly [number, number] {
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const x of xs) {
+    lo = Math.min(lo, x);
+    hi = Math.max(hi, x);
+  }
+  return [lo, hi];
+}
+
 /**
  * Lists the lattice lines of one direction that lie inside the sheet, as maximal segments.
  *
@@ -84,9 +95,12 @@ export function sheetGrid(cp: CreasePattern, d: Eisenstein): readonly GridSegmen
   // Position along the line: the coordinate that d changes.
   const along = (z: Eisenstein) => (d.a !== 0 ? z.a : z.b);
 
+  // Loops, not Math.min(...xs): spreading a large vertex list overflows the call stack (6.3).
+  const [minA, maxA] = range(as);
+  const [minB, maxB] = range(bs);
   const byLine = new Map<number, Eisenstein[]>();
-  for (let b = Math.min(...bs); b <= Math.max(...bs); b++) {
-    for (let a = Math.min(...as); a <= Math.max(...as); a++) {
+  for (let b = minB; b <= maxB; b++) {
+    for (let a = minA; a <= maxA; a++) {
       const p = eis(a, b);
       const q = add(p, d);
       const mid2 = add(p, q);

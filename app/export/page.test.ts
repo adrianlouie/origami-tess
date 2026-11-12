@@ -36,6 +36,25 @@ describe("fitToPage reserveTop", () => {
     expect(() => fitToPage(box(1, 1), "a4", 36, "portrait", -1)).toThrow(RangeError);
     expect(() => fitToPage(box(1, 1), "a4", 36, "portrait", 10_000)).toThrow(RangeError);
   });
+
+  it("checks the band against the height of the orientation used, not the short side", () => {
+    // Margins 250 and a 100 point band: 600 points of the 841.89 point A4 height, but more than
+    // the 595.28 point landscape height.
+    const f = fitToPage(box(4, 6), "a4", 250, "portrait", 100);
+    expect(f.height).toBe(PAGE_SIZES.a4.height);
+    expect(f.scale).toBeGreaterThan(0);
+    // Landscape has no room for it, so auto falls back to portrait and landscape throws.
+    expect(fitToPage(box(6, 4), "a4", 250, "auto", 100).height).toBe(PAGE_SIZES.a4.height);
+    expect(() => fitToPage(box(4, 6), "a4", 250, "landscape", 100)).toThrow(/band/);
+  });
+});
+
+describe("fitToPage page names", () => {
+  it("rejects names that only exist on the prototype", () => {
+    for (const name of ["toString", "constructor", "__proto__", "hasOwnProperty"]) {
+      expect(() => fitToPage(box(1, 1), name as never, 36, "auto")).toThrow(RangeError);
+    }
+  });
 });
 
 describe("fitToPage", () => {
