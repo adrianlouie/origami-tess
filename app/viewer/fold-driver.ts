@@ -24,6 +24,34 @@ import type { CreasePattern } from "../../core/pattern/crease-pattern";
 /** The most the fold fraction (0 to 1) moves in one {@link tick}: 2% of a full fold. */
 export const FOLD_RATE = 0.02;
 
+/**
+ * The fold fraction at a slider reading of 100 %. Below 1 on purpose: at a fold of exactly 1 every
+ * crease asks for π, the layers become coplanar and the renderer z-fights between them. At 0.98 the
+ * hexagon and full star twists settle with every M and V crease between 0.97π and 0.997π (measured
+ * in the 6.3 audit; the facet springs push some past the target), so each stays at least 0.009 rad
+ * open and the layers sit a little apart, in the order the folds set.
+ */
+export const MAX_FOLD = 0.98;
+
+/**
+ * Maps a slider percentage to the fold fraction the simulation is asked for.
+ *
+ * @param percent - slider reading; values outside [0, 100] are clamped
+ * @returns a fraction in [0, {@link MAX_FOLD}], linear in the percentage
+ */
+export function sliderToFold(percent: number): number {
+  return (Math.min(100, Math.max(0, percent)) / 100) * MAX_FOLD;
+}
+
+/**
+ * The slider percentage that shows a fold fraction: the inverse of {@link sliderToFold}.
+ *
+ * @param fold - fold fraction in [0, {@link MAX_FOLD}]
+ */
+export function foldToSlider(fold: number): number {
+  return (fold / MAX_FOLD) * 100;
+}
+
 /** A fold simulation in progress. Never changed in place; {@link setTarget} and {@link tick} return new ones. */
 export type FoldDriver = {
   readonly model: BarHingeModel;

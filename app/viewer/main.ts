@@ -13,10 +13,12 @@ import * as THREE from "three";
 import { fitRig, type Rig } from "./camera-rig";
 import {
   foldDriver,
+  foldToSlider,
   parseFoldParam,
   parseGadgetParam,
   setTarget,
   settle,
+  sliderToFold,
   tick,
   type FoldDriver,
 } from "./fold-driver";
@@ -62,8 +64,15 @@ function draw(): void {
 
 function showReadout(): void {
   if (!driver) return;
-  const percent = Math.round(driver.fold * 100);
+  const percent = Math.round(foldToSlider(driver.fold));
   readout!.textContent = driver.done ? `fold ${percent} %` : `fold ${percent} % (settling)`;
+}
+
+/** Gives up on the simulation (it diverged): keeps the last drawn sheet and says so in the readout. */
+function stop(error: unknown): void {
+  console.error(error);
+  driver = undefined;
+  readout!.textContent = "simulation failed; pick a gadget to restart";
 }
 
 /** One animation frame: relax within the time budget, show the result, and stop when done. */
@@ -71,7 +80,12 @@ function animate(): void {
   frame = 0;
   if (!driver || driver.done) return;
   const start = performance.now();
-  driver = tick(driver, steps);
+  try {
+    driver = tick(driver, steps);
+  } catch (error) {
+    stop(error);
+    return;
+  }
   const spent = Math.max(performance.now() - start, 0.1);
   steps = Math.round(Math.min(MAX_STEPS, Math.max(MIN_STEPS, (steps * FRAME_BUDGET_MS) / spent)));
   updateSheet(scene, driver.state.positions);
@@ -96,19 +110,28 @@ function load(index: number, foldPercent = 0, instant = false): void {
   cancelAnimationFrame(frame);
   frame = 0;
   scene.traverse((o) => {
-    if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) o.geometry.dispose();
+    if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
+      o.geometry.dispose();
+      for (const material of Array.isArray(o.material) ? o.material : [o.material]) {
+        material.dispose();
+      }
+    }
   });
   const cp = entry.build();
   scene = buildScene(cp);
   driver = foldDriver(cp);
   steps = MIN_STEPS;
   slider!.value = String(foldPercent);
-  driver = setTarget(driver, foldPercent / 100);
+  driver = setTarget(driver, sliderToFold(foldPercent));
   if (instant) {
-    driver = settle(driver, MAX_STEPS, DEEP_LINK_TICKS);
-    updateSheet(scene, driver.state.positions);
+    try {
+      driver = settle(driver, MAX_STEPS, DEEP_LINK_TICKS);
+      updateSheet(scene, driver.state.positions);
+    } catch (error) {
+      stop(error);
+    }
   }
-  showReadout();
+  if (driver) showReadout();
   const box = new THREE.Box3().setFromObject(scene.getObjectByName("sheet")!);
   const { width, height } = size();
   home = fitRig({ min: box.min.toArray(), max: box.max.toArray() }, fovY, width / height);
@@ -129,7 +152,7 @@ picker.append(...GADGET_ENTRIES.map((e, i) => new Option(e.name, String(i))));
 picker.addEventListener("change", () => load(Number(picker.value)));
 slider.addEventListener("input", () => {
   if (!driver) return;
-  driver = setTarget(driver, Number(slider.value) / 100);
+  driver = setTarget(driver, sliderToFold(Number(slider.value)));
   showReadout();
   wake();
 });

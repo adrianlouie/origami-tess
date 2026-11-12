@@ -11,7 +11,7 @@ import { eis, ZERO } from "../lattice/eisenstein";
 import { fromSegments, type CreasePattern } from "../pattern/crease-pattern";
 import { solveMv, withMvAssignment } from "../solve/solver";
 import { SPOKE_ENDS, spokePattern } from "../solve/testing";
-import { RENDER_TOLERANCE } from "./embed";
+import { RENDER_TOLERANCE, toCartesian } from "./embed";
 import { barHingeModel, DEFAULT_PARAMS, type BarHingeModel } from "./model";
 import { foldSweep, relax, restState, type RelaxState } from "./relax";
 
@@ -161,6 +161,151 @@ describe("a flat-foldable degree-4 vertex closes up as it folds", () => {
       const flipped = rhos.map((r, i) => (i === sharpest ? -r : r));
       expect(closureResidual(radians, flipped)).toBeGreaterThan(Math.max(0.3, 2 * residual));
     }
+  });
+});
+
+/** Solves a 3×3 linear system by Gaussian elimination with partial pivoting. */
+function solve3(a: number[][], b: number[]): number[] {
+  const m = a.map((row, i) => [...row, b[i]!]);
+  for (let c = 0; c < 3; c++) {
+    let pivot = c;
+    for (let r = c + 1; r < 3; r++) if (Math.abs(m[r]![c]!) > Math.abs(m[pivot]![c]!)) pivot = r;
+    [m[c], m[pivot]] = [m[pivot]!, m[c]!];
+    for (let r = c + 1; r < 3; r++) {
+      const f = m[r]![c]! / m[c]![c]!;
+      for (let k = c; k < 4; k++) m[r]![k]! -= f * m[c]![k]!;
+    }
+  }
+  const x = [0, 0, 0];
+  for (let r = 2; r >= 0; r--) {
+    let v = m[r]![3]!;
+    for (let k = r + 1; k < 3; k++) v -= m[r]![k]! * x[k]!;
+    x[r] = v / m[r]![r]!;
+  }
+  return x;
+}
+
+/**
+ * The other three fold angles of a degree-4 vertex when crease `index` has angle `value`, on the
+ * rigid path.
+ *
+ * Gauss–Newton on the nine entries of Q − I (see {@link closureResidual}) with a central-difference
+ * Jacobian, started from `guess` (all four angles), so it stays on the branch the simulation is on.
+ * A flat-foldable degree-4 vertex has a one-degree-of-freedom rigid motion (Huffman 1976; Tachi
+ * 2009). The free crease must be one that moves on that branch: on the straight-crease branch of a
+ * vertex with two collinear creases the other two stay at 0, so they cannot be the parameter.
+ */
+function pathAngles(
+  sectors: readonly number[],
+  index: number,
+  value: number,
+  guess: readonly number[],
+) {
+  const others = [0, 1, 2, 3].filter((i) => i !== index);
+  const assemble = (x: readonly number[]) => {
+    const rhos = [0, 0, 0, 0];
+    rhos[index] = value;
+    others.forEach((o, k) => (rhos[o] = x[k]!));
+    return rhos;
+  };
+  const entries = (x: readonly number[]) => {
+    let q = identity();
+    assemble(x).forEach((rho, i) => {
+      q = multiply(multiply(q, rotateX(rho)), rotateZ(sectors[i]!));
+    });
+    return q.flat().map((v, i) => v - (i % 4 === 0 ? 1 : 0));
+  };
+  let x = others.map((o) => guess[o]!);
+  for (let iteration = 0; iteration < 60; iteration++) {
+    const f = entries(x);
+    const jacobian = [0, 1, 2].map((j) => {
+      const hi = [...x];
+      const lo = [...x];
+      hi[j]! += 1e-6;
+      lo[j]! -= 1e-6;
+      const [u, w] = [entries(hi), entries(lo)];
+      return u.map((v, i) => (v - w[i]!) / 2e-6);
+    });
+    const jtj = [0, 1, 2].map((r) =>
+      [0, 1, 2].map((c) => jacobian[r]!.reduce((sum, v, i) => sum + v * jacobian[c]![i]!, 0)),
+    );
+    const jtf = [0, 1, 2].map((r) => jacobian[r]!.reduce((sum, v, i) => sum - v * f[i]!, 0));
+    const step = solve3(jtj, jtf);
+    x = x.map((v, i) => v + step[i]!);
+    if (Math.max(...step.map(Math.abs)) < 1e-13) break;
+  }
+  return { rhos: assemble(x), residual: Math.hypot(...entries(x)) };
+}
+
+describe("the simulated vertex sits at the energy minimum of its rigid path (6.3 audit)", () => {
+  // 6.2a only checked that the measured angles close the vertex. This checks which closed shape the
+  // simulation chose: with stiff panels the model is a rigid-panel vertex whose crease springs pull
+  // each ρᵢ toward its target sᵢ·fold·π, so the equilibrium minimises
+  //   E = Σ kᵢ (ρᵢ − tᵢ)²
+  // along the one-parameter rigid path (kᵢ the crease hinge stiffness). The reference solves
+  // the path from the sector angles alone and minimises E by golden-section search; it shares no
+  // code with `relax`.
+  // 10 times stiffer than the closure test: the energy gap to the rigid path falls in proportion
+  // to the panel stiffness (0.4 % here, 3.5 % at the closure test's stiffness), so it is panel flex.
+  const stiff = { ...DEFAULT_PARAMS, axial: 20000, facet: 5000, angle: 10000 };
+  const vertices: { name: string; spokes: number[]; sectors: number[] }[] = [
+    { name: "sectors 60, 90, 120, 90", spokes: [0, 2, 5, 9], sectors: [60, 90, 120, 90] },
+    { name: "sectors 60, 60, 120, 120", spokes: [0, 2, 4, 8], sectors: [60, 60, 120, 120] },
+    { name: "sectors 30, 30, 150, 150", spokes: [0, 1, 2, 7], sectors: [30, 30, 150, 150] },
+  ];
+
+  it.each(vertices)("$name", ({ spokes, sectors }) => {
+    const free = spokePattern(spokes, "U");
+    const solved = solveMv(free);
+    if (solved.status !== "sat") throw new Error("vertex has no M/V assignment");
+    const cp = withMvAssignment(free, solved.assignment);
+    const model = barHingeModel(cp, stiff);
+    const origin = cp.vertices.findIndex((p) => p.a === 0 && p.b === 0);
+    const radians = sectors.map((d) => (d * Math.PI) / 180);
+    const edges = cp.rotation[origin]!;
+    const hinges = edges.map((e) => model.hinges.find((h) => h.edge === e)!);
+    const results = foldSweep(model, [0.2, 0.4]);
+    [0.2, 0.4].forEach((fold, n) => {
+      const result = results[n]!;
+      const simulated = edges.map((e) => edgeAngle(model, result, e));
+      const energy = (rhos: readonly number[]) =>
+        rhos.reduce((sum, rho, i) => {
+          // Crease hinge stiffness is `crease` per unit length times the spoke's length, worked
+          // out here from the lattice and not read back from the model.
+          const end = cp.edges[edges[i]!]!;
+          const tip = cp.vertices[end.v0 === origin ? end.v1 : end.v0]!;
+          const length = Math.hypot(toCartesian(tip).x, toCartesian(tip).y);
+          const sign = hinges[i]!.sign;
+          return sum + stiff.crease * length * (rho - sign * fold * Math.PI) ** 2;
+        }, 0);
+      // The crease that moves most is the path parameter (see `pathAngles`).
+      const index = simulated.reduce(
+        (best, r, i) => (Math.abs(r) > Math.abs(simulated[best]!) ? i : best),
+        0,
+      );
+      const at = (value: number) => {
+        const p = pathAngles(radians, index, value, simulated);
+        return p.residual < 1e-9 ? p.rhos : null;
+      };
+      // Golden-section search for the minimum of E along the path, around the simulated value.
+      const phi = (Math.sqrt(5) - 1) / 2;
+      let [lo, hi] = [simulated[index]! - 0.3, simulated[index]! + 0.3];
+      const value = (r: number) => {
+        const rhos = at(r);
+        return rhos ? energy(rhos) : Infinity;
+      };
+      for (let i = 0; i < 80; i++) {
+        const [a, b] = [hi - phi * (hi - lo), lo + phi * (hi - lo)];
+        if (value(a) < value(b)) hi = b;
+        else lo = a;
+      }
+      const best = at((lo + hi) / 2);
+      expect(best).not.toBeNull();
+      // The simulation has a little panel flex the rigid path lacks, so its energy can be a little
+      // above or below the path minimum; a different branch or a wrong spring weight is far off.
+      expect(Math.abs(energy(best!) - energy(simulated))).toBeLessThan(0.01 * energy(simulated));
+      best!.forEach((rho, i) => expect(Math.abs(rho - simulated[i]!)).toBeLessThan(0.01));
+    });
   });
 });
 

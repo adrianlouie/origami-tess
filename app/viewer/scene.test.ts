@@ -4,7 +4,12 @@ import { describe, expect, it } from "vitest";
 import { hexagonTwist } from "../../core/gadgets/hexagon-twist";
 import { starTwist } from "../../core/gadgets/star-twist";
 import { triangleTwist } from "../../core/gadgets/triangle-twist";
-import { faceDoubledArea, type CreasePattern } from "../../core/pattern/crease-pattern";
+import { eis } from "../../core/lattice/eisenstein";
+import {
+  faceDoubledArea,
+  fromSegments,
+  type CreasePattern,
+} from "../../core/pattern/crease-pattern";
 import { RENDER_TOLERANCE } from "../render/cartesian";
 import { fitRig, orbit } from "./camera-rig";
 import { barHingeModel } from "../../core/simulate/model";
@@ -173,14 +178,48 @@ describe("updateSheet", () => {
     expect(line.geometry.boundingSphere?.center.z ?? 50).toBeCloseTo(50, 3);
   });
 
-  it("recomputes the normals: a flat sheet faces +z, a tilted one does not", () => {
+  it("recomputes the bounding box too, so Box3.setFromObject sees the folded sheet", () => {
     const scene = buildScene(cp);
     const mesh = sheetOf(scene);
-    const p = Float64Array.from(barHingeModel(cp).rest);
-    for (let i = 0; i < p.length; i += 3) p[i + 2] = 0.5 * p[i]!;
-    updateSheet(scene, p);
-    const normal = mesh.geometry.getAttribute("normal");
-    expect(Math.abs(normal.getZ(0))).toBeLessThan(0.99);
+    mesh.geometry.computeBoundingBox();
+    updateSheet(scene, lifted(50));
+    expect(mesh.geometry.boundingBox!.min.z).toBeCloseTo(50, 3);
+    expect(new THREE.Box3().setFromObject(mesh).min.z).toBeCloseTo(50, 3);
+    const line = scene.getObjectByName("creases-M") as THREE.LineSegments;
+    expect(line.geometry.boundingBox?.min.z ?? 50).toBeCloseTo(50, 3);
+  });
+
+  it("recomputes the dash distances of unassigned (U) creases, which depend on the positions", () => {
+    // LineDashedMaterial reads a per-vertex `lineDistance` made by computeLineDistances. Computed
+    // once on the flat sheet it would stay at the flat length and the dashes would stretch.
+    const square = fromSegments(
+      [],
+      [
+        { from: eis(0, 0), to: eis(1, 0), assignment: "B" },
+        { from: eis(1, 0), to: eis(1, 1), assignment: "B" },
+        { from: eis(1, 1), to: eis(0, 1), assignment: "B" },
+        { from: eis(0, 1), to: eis(0, 0), assignment: "B" },
+        { from: eis(1, 0), to: eis(0, 1), assignment: "U" },
+      ],
+    );
+    const scene = buildScene(square);
+    const line = scene.getObjectByName("creases-U") as THREE.LineSegments;
+    const distances = () => Array.from(line.geometry.getAttribute("lineDistance").array);
+    const flat = distances();
+    const positions = Float64Array.from(barHingeModel(square).rest);
+    const u = square.edges.find((e) => e.assignment === "U")!;
+    // Lift one end of the dashed crease: its length grows from √2 to √(2 + 9).
+    positions[3 * u.v1 + 2] = 3;
+    updateSheet(scene, positions);
+    const lifted = distances();
+    expect(lifted[1]).toBeGreaterThan(flat[1]! + 1);
+    expect(lifted[1]).toBeCloseTo(Math.hypot(flat[1]!, 3), 3);
+  });
+
+  it("shades the paper flat, so a crease is a sharp edge rather than a smooth blend", () => {
+    // Averaged vertex normals round off every fold; flat shading takes the normal per triangle.
+    const material = sheetOf(buildScene(cp)).material as THREE.MeshStandardMaterial;
+    expect(material.flatShading).toBe(true);
   });
 
   it("throws RangeError when the array is the wrong length", () => {
