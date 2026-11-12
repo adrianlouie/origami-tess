@@ -29,7 +29,9 @@ import type { PageName } from "../export/page";
 import type { CreasePattern } from "../../core/pattern/crease-pattern";
 import { GADGET_ENTRIES } from "./gadgets";
 import { pointerToRig } from "./input";
-import { applyRig, buildScene, setPaperColor, updateSheet } from "./scene";
+import { applyRig, buildScene, setPaperColor, setStepHighlight, updateSheet } from "./scene";
+import { foldSteps, type FoldStep } from "../../core/pattern/fold-steps";
+import { stepCaption, stepHighlight } from "./step-text";
 
 /** Wall-clock time one frame may spend relaxing, in milliseconds. */
 const FRAME_BUDGET_MS = 10;
@@ -52,6 +54,9 @@ const exportPdf = document.querySelector<HTMLButtonElement>("#export-pdf");
 const pageSize = document.querySelector<HTMLSelectElement>("#page");
 const paperFront = document.querySelector<HTMLInputElement>("#paper-front");
 const paperBack = document.querySelector<HTMLInputElement>("#paper-back");
+const stepPrev = document.querySelector<HTMLButtonElement>("#step-prev");
+const stepNext = document.querySelector<HTMLButtonElement>("#step-next");
+const stepText = document.querySelector<HTMLOutputElement>("#step-text");
 if (
   !canvas ||
   !picker ||
@@ -62,7 +67,10 @@ if (
   !exportPdf ||
   !pageSize ||
   !paperFront ||
-  !paperBack
+  !paperBack ||
+  !stepPrev ||
+  !stepNext ||
+  !stepText
 )
   throw new Error("index.html is missing the viewer elements");
 
@@ -76,6 +84,9 @@ let home: Rig | undefined;
 let driver: FoldDriver | undefined;
 let current: { name: string; cp: CreasePattern } | undefined;
 let steps = MIN_STEPS;
+let foldList: readonly FoldStep[] = [];
+/** The folding step shown, or -1 before the first Next. */
+let stepIndex = -1;
 let frame = 0;
 
 function draw(): void {
@@ -148,6 +159,9 @@ function load(index: number, foldPercent = 0, instant = false): void {
   });
   driver = foldDriver(cp);
   steps = MIN_STEPS;
+  foldList = foldSteps(cp);
+  stepIndex = -1;
+  showStep(-1, false);
   slider!.value = String(foldPercent);
   driver = setTarget(driver, sliderToFold(foldPercent));
   if (instant) {
@@ -167,6 +181,29 @@ function load(index: number, foldPercent = 0, instant = false): void {
   wake();
 }
 
+/**
+ * Shows folding step `index` (-1 for none): its caption and highlight, and the fold target, which
+ * is 0 for the pre-crease steps and 100 percent for the collapse.
+ */
+function showStep(index: number, redraw = true): void {
+  stepIndex = Math.max(-1, Math.min(foldList.length - 1, index));
+  const step = foldList[stepIndex];
+  stepText!.textContent = step
+    ? stepCaption(foldList, stepIndex)
+    : "Press Next for the folding steps.";
+  stepPrev!.disabled = stepIndex < 0;
+  stepNext!.disabled = stepIndex >= foldList.length - 1;
+  const highlight = step ? stepHighlight(step) : null;
+  setStepHighlight(scene, highlight?.segments ?? null, highlight?.color);
+  if (!redraw || !driver) return;
+  const percent = step?.kind === "collapse" ? 100 : 0;
+  slider!.value = String(percent);
+  driver = setTarget(driver, sliderToFold(percent));
+  showReadout();
+  wake();
+  draw();
+}
+
 function resize(): void {
   const { width, height } = size();
   renderer.setPixelRatio(window.devicePixelRatio);
@@ -183,6 +220,8 @@ slider.addEventListener("input", () => {
   showReadout();
   wake();
 });
+stepPrev.addEventListener("click", () => showStep(stepIndex - 1));
+stepNext.addEventListener("click", () => showStep(stepIndex + 1));
 for (const [input, side] of [
   [paperFront, "front"],
   [paperBack, "back"],
