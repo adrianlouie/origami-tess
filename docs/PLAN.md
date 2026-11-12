@@ -204,13 +204,37 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - Limit: that energy test does not notice a change in the crease-stiffness length scaling (mutation survived): on the symmetric vertices the minimum barely moves with the 2:√3 weights. Sign and closure errors are caught by the earlier tests
 
 ## Phase 7: Export
-- [ ] 7.1 SVG/PDF with M/V line styles
+- [x] 7.1 SVG/PDF export of the crease pattern with M/V line styles
+  - `core/pattern/lines.ts`: `creaseLines(cp)` merges unit edges into maximal straight runs of one assignment (exact: two edges join at a vertex when they are the only two of that assignment there and their primitive directions are opposite). Gadget rays are lists of unit edges, and a dash pattern restarts on every separate segment, so without this every dashed crease would break at each lattice point
+  - `app/render/crease-style.ts`: one `CREASE_STYLE` table (colour, width, dash) for the viewer and both exporters; `CREASE_COLORS` in `scene.ts` now derives from it. Decided with the user: diagram convention, so M and V differ in dash as well as colour and survive a black-and-white print. M red dash-dot, V blue dashed, B dark solid, F thin grey, U grey dotted
+  - `app/render/crease-svg.ts`: `creasePatternToSvg(cp, opts)`, one `<g data-assignment>` per assignment in the order F, U, B, V, M (folds on top), one `<line data-edges>` per maximal line
+  - `app/export/page.ts`: `fitToPage(extent, page, margin, orientation)`, one uniform scale, centred, `auto` picks the larger orientation; A4 and Letter in points
+  - `app/export/pdf.ts`: `creasePatternToPdf(cp, opts)`, a hand-written one-page PDF 1.4 (no dependency, decided with the user): lines only, no fonts, images, dates or ids, so the bytes are deterministic. Exact xref offsets (ISO 32000-1 §7.5), dash `d` (§8.4.3.6), round caps for dots
+  - `app/export/download.ts` (`exportFile`, `slug`, pure) and the viewer's "Export SVG", "Export PDF" and page-size controls: the selected gadget's flat pattern, whatever the fold slider says
+  - Tests (acceptance first): every gadget variant's SVG parsed back (every edge once, its colour and dash, end points at the exact pixel position, M and V dashes differ); the PDF parsed back (xref offsets, stream length, each maximal line at its fitted place with its colour, dash and cap, inside the margins on A4 and Letter, no y flip); `creaseLines` against a brute-force union-find merge on the gadgets and on random line arrangements (fast-check); page fit property; pipeline stage for every gadget. Mutation-checked: M and V sharing a dash, an xref offset off by one, and dropping the "exactly two" rule each fail tests
+  - Checked by eye: SVG snapshot and a Letter PDF rasterized by Quick Look (dashes run unbroken along rays, M reads differently from V), and the viewer buttons in headless Chrome. The buttons' click handler is not exercised by a test (headless Chrome cannot click); `exportFile` carries the logic
+- [ ] 7.1b Front and back paper colour pickers in the 3D viewer (viewer only; asked for 2026-11-11, planned after 7.1). `scene.ts` has one cream `MeshStandardMaterial` with `DoubleSide`; two colours need a front and a back material (for example a second mesh with `BackSide`), kept in step with `updateSheet`
 - [ ] 7.2 Guided pre-crease then collapse step list
+- [ ] 7.3 Phase 7 audit (`audit/phase-7`): debug and test Phases 1 to 7 per the `CLAUDE.md` "Phase audits" section
+  - Also land the book's Slot A checks (see `docs/BOOK_IMPROVEMENTS.md`, "When to work on each item"): Big-Little-Big at border vertices, Hull's exact single-vertex test, the shared face two-colouring helper, `maxwellExcess`, the strip-of-thirds and impossible-triangle fixtures, the bird's-foot analytic fold-angle test and the other `relax` residual checks, the twist-angle checks against the book's limits, and the doc rewordings
 
 ## Phase 8: Generative math
 - [ ] 8.1 Parameter sweeps (twist angle, n)
+  - Book: filter sweeps with the twist-angle limits (αcrit = 90° − 180°/n, αsafe, mm/vv and mv/vm conditions, the cyclic-overlap cases) before running the solver
 - [ ] 8.2 Random motif + symmetry + solver repair (repair raises the `nearFoldability` score; a full fold is not required)
+  - Book alternative, preferred: Delaunay/Voronoi on lattice points with an exact shrink-rotate in Q(ω), M/V from the oriented dual graph, so Kawasaki holds by construction (Thm 23) and the solver verifies; Kawasaki-excess split-twist repair for patterns that fail
 - [ ] 8.3 Cellular-automaton growth on the lattice
+
+## Book-derived backlog (proposed; not yet numbered steps)
+Source: Lang, *Twists, Tilings, and Tessellations*; details, formulas and page numbers in `docs/BOOK_IMPROVEMENTS.md`. Plan each chunk in plan mode before coding.
+- [ ] B.0 Decisions first: extend the exact number type beyond Z[ω] (squares and 12-gons need Z[i] or Z[ζ₁₂]) or stay on the triangular lattice; where the float stage starts; rational affine maps so `foldFaces` is not limited to 30° mirror lines
+- [ ] B.1 `core/tiling/`: vertex-figure enumeration, lattice-support table, Table 5.1 patches, edge orientation, subdivision
+- [ ] B.2 Twist taxonomy in the gadgets: an α parameter, the 30° triangle and hexagon twists (safe for every assignment at any paper size), the supercritical triangle variant
+- [ ] B.3 LFF graph as a second M/V solver and conflict explainer; Justin path conditions as a fast screen
+- [ ] C.1 Tile layer: centred and offset species (w, τ) and (w, d), folded-form tiles, triangle tiles, split twists, tile diagnostics
+- [ ] D.1 Rigid-foldability graph, analytic fold angles and exact rigid kinematics for the viewer
+- [ ] D.2 Viewer and export controls: tiling picker, edge-arrow editor, species control, flat-folded-outline preview
+- Later or optional: Miura-ori, Mars, Huffman, Yoshimura, flagstone, waterbomb, woven; Cairo and Penrose tilings (float only)
 
 ## Optional side modules
 - [ ] Miura-ori closed-form generator and rigid fold
@@ -220,5 +244,7 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
 - Layer ordering is NP-hard in general; structured tessellations should be tractable. If the TypeScript solver is too slow, port that module to Rust→WASM.
 - Passing the local validators (Kawasaki, Maekawa, Big-Little-Big) does not mean a pattern folds flat: two of the three gadgets passed them and still failed (the triangle twist below n = 3m, and the star twist in its `partial` variant). Run `stackingClauses` on every new gadget or generated pattern (8.2 especially).
 - The whole-pattern test oracle (`core/solve/layer-oracle.ts`) covers convex faces and about 26 overlapping pairs; bigger or non-convex patterns are only checked on face subsets, so 5.2 needs its own independent order check.
-- Twist folds are not rigid-foldable, so the 3D animation is approximate; the flat-folded render is the accurate one.
+- Most twist folds are not rigid-foldable, so the 3D animation is approximate; the flat-folded render is the accurate one. The book is more precise: no triangle twist is rigidly foldable, the cyclic (M⁴) and alternating ((MV)²) square twists never are, and M²V² and M³V square twists are, for any twist angle. For degree-4 patterns a fold-angle graph decides it (Lang, Ch. 7).
+- `maekawa` and Big-Little-Big are only encoded at interior vertices, but a border vertex with a strictly small sector still forces its two creases to differ (Lang, Fig. 1.45), so `solveMv` can return assignments that the layer stage later rejects. Fix in the Phase 7 audit.
+- The exact-integer convention covers only Z[ω]: squares, octagons and 12-gons need a larger exact ring and pentagon tilings are float-only. Decide before building the tile layer (B.0).
 - Matching the style of the reference photos is realistic; matching them exactly is a stretch goal.
