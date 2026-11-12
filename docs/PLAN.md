@@ -204,7 +204,16 @@ Each step is sized to one PR. Write the acceptance test before the code. Check a
   - Limit: that energy test does not notice a change in the crease-stiffness length scaling (mutation survived): on the symmetric vertices the minimum barely moves with the 2:√3 weights. Sign and closure errors are caught by the earlier tests
 
 ## Phase 7: Export
-- [ ] 7.1 SVG/PDF with M/V line styles
+- [x] 7.1 SVG/PDF export of the crease pattern with M/V line styles
+  - `core/pattern/lines.ts`: `creaseLines(cp)` merges unit edges into maximal straight runs of one assignment (exact: two edges join at a vertex when they are the only two of that assignment there and their primitive directions are opposite). Gadget rays are lists of unit edges, and a dash pattern restarts on every separate segment, so without this every dashed crease would break at each lattice point
+  - `app/render/crease-style.ts`: one `CREASE_STYLE` table (colour, width, dash) for the viewer and both exporters; `CREASE_COLORS` in `scene.ts` now derives from it. Decided with the user: diagram convention, so M and V differ in dash as well as colour and survive a black-and-white print. M red dash-dot, V blue dashed, B dark solid, F thin grey, U grey dotted
+  - `app/render/crease-svg.ts`: `creasePatternToSvg(cp, opts)`, one `<g data-assignment>` per assignment in the order F, U, B, V, M (folds on top), one `<line data-edges>` per maximal line
+  - `app/export/page.ts`: `fitToPage(extent, page, margin, orientation)`, one uniform scale, centred, `auto` picks the larger orientation; A4 and Letter in points
+  - `app/export/pdf.ts`: `creasePatternToPdf(cp, opts)`, a hand-written one-page PDF 1.4 (no dependency, decided with the user): lines only, no fonts, images, dates or ids, so the bytes are deterministic. Exact xref offsets (ISO 32000-1 §7.5), dash `d` (§8.4.3.6), round caps for dots
+  - `app/export/download.ts` (`exportFile`, `slug`, pure) and the viewer's "Export SVG", "Export PDF" and page-size controls: the selected gadget's flat pattern, whatever the fold slider says
+  - Tests (acceptance first): every gadget variant's SVG parsed back (every edge once, its colour and dash, end points at the exact pixel position, M and V dashes differ); the PDF parsed back (xref offsets, stream length, each maximal line at its fitted place with its colour, dash and cap, inside the margins on A4 and Letter, no y flip); `creaseLines` against a brute-force union-find merge on the gadgets and on random line arrangements (fast-check); page fit property; pipeline stage for every gadget. Mutation-checked: M and V sharing a dash, an xref offset off by one, and dropping the "exactly two" rule each fail tests
+  - Checked by eye: SVG snapshot and a Letter PDF rasterized by Quick Look (dashes run unbroken along rays, M reads differently from V), and the viewer buttons in headless Chrome. The buttons' click handler is not exercised by a test (headless Chrome cannot click); `exportFile` carries the logic
+- [ ] 7.1b Front and back paper colour pickers in the 3D viewer (viewer only; asked for 2026-11-11, planned after 7.1). `scene.ts` has one cream `MeshStandardMaterial` with `DoubleSide`; two colours need a front and a back material (for example a second mesh with `BackSide`), kept in step with `updateSheet`
 - [ ] 7.2 Guided pre-crease then collapse step list
 
 ## Phase 8: Generative math

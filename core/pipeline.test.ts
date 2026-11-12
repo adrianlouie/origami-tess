@@ -23,7 +23,10 @@ import { freed } from "./solve/testing";
 import { foldedToSvg } from "../app/render/folded-svg";
 import { gridToSvg, tilingToSvg } from "../app/render/svg";
 import { GADGET_ENTRIES } from "../app/viewer/gadgets";
+import { creasePatternToPdf } from "../app/export/pdf";
+import { creasePatternToSvg } from "../app/render/crease-svg";
 import { buildScene } from "../app/viewer/scene";
+import { creaseLines } from "./pattern/lines";
 import { sheetGeometry } from "../app/viewer/sheet";
 import { barHingeModel } from "./simulate/model";
 import { relax, restState } from "./simulate/relax";
@@ -108,6 +111,19 @@ describe("pattern → 3D scene", () => {
     "%s builds a scene with its sheet",
     (_name, entry) => {
       expect(buildScene(entry.build()).getObjectByName("sheet")).toBeDefined();
+    },
+  );
+});
+
+describe("pattern → export", () => {
+  it.each(GADGET_ENTRIES.map((e) => [e.name, e] as const))(
+    "%s exports to SVG and PDF with one line per maximal crease",
+    (_name, entry) => {
+      const cp = entry.build();
+      const lines = creaseLines(cp);
+      expect(creasePatternToSvg(cp).match(/<line /g)).toHaveLength(lines.length);
+      const pdf = new TextDecoder("latin1").decode(creasePatternToPdf(cp));
+      expect(pdf.match(/ l S\n/g)).toHaveLength(lines.length);
     },
   );
 });

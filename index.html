@@ -37,6 +37,12 @@
       <button id="reset" type="button">Reset view</button>
       <input id="fold" type="range" min="0" max="100" value="0" aria-label="Fold percentage" />
       <output id="readout" for="fold">fold 0 %</output>
+      <button id="export-svg" type="button">Export SVG</button>
+      <button id="export-pdf" type="button">Export PDF</button>
+      <select id="page" aria-label="PDF page size">
+        <option value="a4">A4</option>
+        <option value="letter">Letter</option>
+      </select>
     </div>
     <script type="module" src="/app/viewer/main.ts"></script>
   </body>

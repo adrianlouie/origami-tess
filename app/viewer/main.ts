@@ -6,6 +6,8 @@
  * something changed. The one animation loop runs only while the fold simulation is settling, and
  * stops as soon as the driver is done, so an idle page does no work.
  *
+ * The export buttons download the selected gadget's flat crease pattern (`app/export/download.ts`).
+ *
  * URL parameters, for screenshots: `?gadget=<index>` and `?fold=<percent>`.
  */
 
@@ -22,6 +24,9 @@ import {
   tick,
   type FoldDriver,
 } from "./fold-driver";
+import { exportFile, type ExportKind } from "../export/download";
+import type { PageName } from "../export/page";
+import type { CreasePattern } from "../../core/pattern/crease-pattern";
 import { GADGET_ENTRIES } from "./gadgets";
 import { pointerToRig } from "./input";
 import { applyRig, buildScene, updateSheet } from "./scene";
@@ -42,7 +47,10 @@ const picker = document.querySelector<HTMLSelectElement>("#gadget");
 const reset = document.querySelector<HTMLButtonElement>("#reset");
 const slider = document.querySelector<HTMLInputElement>("#fold");
 const readout = document.querySelector<HTMLOutputElement>("#readout");
-if (!canvas || !picker || !reset || !slider || !readout)
+const exportSvg = document.querySelector<HTMLButtonElement>("#export-svg");
+const exportPdf = document.querySelector<HTMLButtonElement>("#export-pdf");
+const pageSize = document.querySelector<HTMLSelectElement>("#page");
+if (!canvas || !picker || !reset || !slider || !readout || !exportSvg || !exportPdf || !pageSize)
   throw new Error("index.html is missing the viewer elements");
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -53,6 +61,7 @@ let scene = new THREE.Scene();
 let rig: Rig | undefined;
 let home: Rig | undefined;
 let driver: FoldDriver | undefined;
+let current: { name: string; cp: CreasePattern } | undefined;
 let steps = MIN_STEPS;
 let frame = 0;
 
@@ -118,6 +127,7 @@ function load(index: number, foldPercent = 0, instant = false): void {
     }
   });
   const cp = entry.build();
+  current = { name: entry.name, cp };
   scene = buildScene(cp);
   driver = foldDriver(cp);
   steps = MIN_STEPS;
@@ -160,6 +170,20 @@ reset.addEventListener("click", () => {
   rig = home;
   draw();
 });
+
+/** Downloads the selected gadget's flat crease pattern in the given format. */
+function download(kind: ExportKind): void {
+  if (!current) return;
+  const file = exportFile(current.cp, current.name, kind, pageSize!.value as PageName);
+  const url = URL.createObjectURL(new Blob([file.data], { type: file.mime }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = file.filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+exportSvg.addEventListener("click", () => download("svg"));
+exportPdf.addEventListener("click", () => download("pdf"));
 window.addEventListener("resize", resize);
 
 let last: { x: number; y: number } | null = null;

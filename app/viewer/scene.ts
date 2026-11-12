@@ -10,16 +10,17 @@
 
 import * as THREE from "three";
 import type { Assignment, CreasePattern } from "../../core/pattern/crease-pattern";
+import { CREASE_STYLE } from "../render/crease-style";
 import { clipPlanes, rigPose, type Rig } from "./camera-rig";
 import { ASSIGNMENTS, sheetGeometry } from "./sheet";
 
-/** Line colours by assignment: mountain red, valley blue, border and flat grey, unassigned dashed. */
+/** Line colours by assignment, from the shared style table (`app/render/crease-style.ts`). */
 export const CREASE_COLORS: Readonly<Record<Assignment, number>> = {
-  M: 0xd62828,
-  V: 0x1d4ed8,
-  B: 0x333333,
-  F: 0x9ca3af,
-  U: 0x6b7280,
+  M: CREASE_STYLE.M.color,
+  V: CREASE_STYLE.V.color,
+  B: CREASE_STYLE.B.color,
+  F: CREASE_STYLE.F.color,
+  U: CREASE_STYLE.U.color,
 };
 
 /** Writes the endpoints of each vertex pair, two positions per segment, into a non-indexed geometry. */
