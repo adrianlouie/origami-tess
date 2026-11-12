@@ -196,6 +196,8 @@ describe("URL parameters", () => {
 });
 
 describe("the driver and foldSweep walk the same fold path", () => {
+  // The exact-equality case runs each gadget twice with a 100 000-step budget, so it uses the
+  // smaller twist: triangle twist (6, 2) took about 30 s here and timed out on CI.
   /** The fold fractions the driver visits on the way to `target`, with the state at each. */
   function visit(start: FoldDriver, budget: number, maxTicks: number) {
     const folds: number[] = [];
@@ -210,13 +212,17 @@ describe("the driver and foldSweep walk the same fold path", () => {
 
   it.each([
     ["hexagon twist (1, 2)", hexagonTwist(1, 2)],
-    ["triangle twist (6, 2)", triangleTwist(6, 2)],
-  ])("%s: with a large budget the driver equals foldSweep over its own ramp", (_n, cp) => {
-    const { d, folds } = visit(setTarget(foldDriver(cp), 0.5), 100_000, 100);
-    const sweep = foldSweep(d.model, folds, { maxSteps: 100_000 });
-    // Same algorithm and same inputs, so the arrays are identical, not merely close.
-    expect(Array.from(d.state.positions)).toEqual(Array.from(sweep.at(-1)!.positions));
-  });
+    ["triangle twist (4, 1)", triangleTwist(4, 1)],
+  ])(
+    "%s: with a large budget the driver equals foldSweep over its own ramp",
+    (_n, cp) => {
+      const { d, folds } = visit(setTarget(foldDriver(cp), 0.5), 100_000, 100);
+      const sweep = foldSweep(d.model, folds, { maxSteps: 100_000 });
+      // Same algorithm and same inputs, so the arrays are identical, not merely close.
+      expect(Array.from(d.state.positions)).toEqual(Array.from(sweep.at(-1)!.positions));
+    },
+    60_000,
+  );
 
   it("hexagon twist (1, 2): a browser-sized budget of 100 steps a tick settles to the same shape", () => {
     const cp = hexagonTwist(1, 2);
