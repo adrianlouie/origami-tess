@@ -1,33 +1,23 @@
 /**
  * Acceptance tests for step 6.2a: the bar-and-hinge model folds, and the folds it finds are the
- * right ones. The model is approximate (twist folds are not rigid-foldable), so these tests check
- * physical properties of the result, not a reference shape: the target angle where the answer is
- * exact (one crease), closure around a vertex, strain, and the mountain/valley sign of every crease.
+ * right ones. The model is approximate (no triangle twist is rigidly foldable, Lang §7.6.1), so
+ * these tests check physical properties of the result, not a reference shape: the target angle where
+ * the answer is exact (one crease), closure around a vertex, the closed forms of a bird's-foot
+ * vertex, strain, and the mountain/valley sign of every crease.
  */
 
 import { describe, expect, it } from "vitest";
 import { GADGET_ENTRIES } from "../../app/viewer/gadgets";
 import { eis, ZERO } from "../lattice/eisenstein";
 import { fromSegments, type CreasePattern } from "../pattern/crease-pattern";
-import { solveMv, withMvAssignment } from "../solve/solver";
+import { localMvClauses } from "../solve/clauses";
+import { mvSolutions, solveMv, withMvAssignment } from "../solve/solver";
 import { SPOKE_ENDS, spokePattern } from "../solve/testing";
+import { birdsFootMajor } from "./analytic";
 import { RENDER_TOLERANCE, toCartesian } from "./embed";
 import { barHingeModel, DEFAULT_PARAMS, type BarHingeModel } from "./model";
 import { foldSweep, relax, restState, type RelaxState } from "./relax";
-
-/** Largest |L/L₀ − 1| over all bars. */
-function maxStrain(model: BarHingeModel, x: Float64Array): number {
-  let worst = 0;
-  for (const b of model.bars) {
-    const length = Math.hypot(
-      x[3 * b.a]! - x[3 * b.b]!,
-      x[3 * b.a + 1]! - x[3 * b.b + 1]!,
-      x[3 * b.a + 2]! - x[3 * b.b + 2]!,
-    );
-    worst = Math.max(worst, Math.abs(length / b.rest - 1));
-  }
-  return worst;
-}
+import { maxStrain } from "./residuals";
 
 /** The fold angle of the hinge on a pattern edge (a crease edge has exactly one). */
 function edgeAngle(model: BarHingeModel, state: RelaxState, edge: number): number {
@@ -161,6 +151,93 @@ describe("a flat-foldable degree-4 vertex closes up as it folds", () => {
       const flipped = rhos.map((r, i) => (i === sharpest ? -r : r));
       expect(closureResidual(radians, flipped)).toBeGreaterThan(Math.max(0.3, 2 * residual));
     }
+  });
+});
+
+describe("a symmetric bird's-foot vertex follows Lang's closed forms (7.3c)", () => {
+  // Sectors (α, α, π − α, π − α), creases c0 to c3 counter-clockwise, so c1 and c3 are collinear.
+  // A flat-foldable vertex of this shape has six assignments (the 4 / 6 / 8 counts of 7.3b), and the
+  // rigid motion the simulation follows depends on them (Lang §2.4.3, Eqs. 2.2 to 2.8, p. 139):
+  //  - c1 and c3 of opposite signs cannot fold as one straight line, so all four creases move: the
+  //    bird's-foot branch, with c0 and c2 folding by γ₊ and c1 and c3 by γ₋, tan(γ₊/2) = sec α ·
+  //    tan(γ₋/2). Opposite creases carry equal angles (Thms 25 and 26 for a flat-foldable vertex).
+  //  - c1 and c3 of the same sign fold as one straight line, by exactly the target angle, and c0 and
+  //    c2 stay flat: the straight-crease branch (the 6.3 audit saw it without a closed form).
+  // 6.2a only checked that the vertex closes. This checks the value it closes to, against forms that
+  // share no code with `relax`. The panels flex, so each match is to a tolerance that must fall as
+  // they stiffen.
+  const soft = { ...DEFAULT_PARAMS, axial: 2000, facet: 500, angle: 1000 };
+  const stiff = { ...DEFAULT_PARAMS, axial: 20000, facet: 5000, angle: 10000 };
+  const FOLDS = [0.2, 0.4];
+  const vertices = [
+    { name: "α = 60° (sectors 60, 60, 120, 120)", spokes: [0, 2, 4, 8], degrees: 60 },
+    { name: "α = 30° (sectors 30, 30, 150, 150)", spokes: [0, 1, 2, 7], degrees: 30 },
+  ];
+
+  /** The four fold angles round the origin at each fold in `FOLDS`, in counter-clockwise order. */
+  const sweepAngles = (cp: CreasePattern, params: typeof soft): number[][] => {
+    const model = barHingeModel(cp, params);
+    const origin = cp.vertices.findIndex((p) => p.a === 0 && p.b === 0);
+    return foldSweep(model, FOLDS).map((result) =>
+      cp.rotation[origin]!.map((e) => edgeAngle(model, result, e)),
+    );
+  };
+
+  it.each(vertices)("$name", ({ spokes, degrees }) => {
+    const alpha = (degrees * Math.PI) / 180;
+    const free = spokePattern(spokes, "U");
+    const origin = free.vertices.findIndex((p) => p.a === 0 && p.b === 0);
+    const cases = [...mvSolutions(localMvClauses(free))].map((a) => withMvAssignment(free, a));
+    expect(cases).toHaveLength(6);
+
+    const generic: CreasePattern[] = [];
+    const straight: CreasePattern[] = [];
+    for (const cp of cases) {
+      const creases = cp.rotation[origin]!.map((e) => cp.edges[e]!.assignment);
+      (creases[1] !== creases[3] ? generic : straight).push(cp);
+    }
+    expect(generic).toHaveLength(2);
+    expect(straight).toHaveLength(4);
+
+    /** How far the angles are from the bird's-foot branch: unequal opposite pairs, and the formula. */
+    const genericError = (rho: number[]) => {
+      const minor = (Math.abs(rho[1]!) + Math.abs(rho[3]!)) / 2;
+      const major = (Math.abs(rho[0]!) + Math.abs(rho[2]!)) / 2;
+      return {
+        unequal: Math.max(
+          Math.abs(rho[0]!) - Math.abs(rho[2]!),
+          Math.abs(rho[1]!) - Math.abs(rho[3]!),
+        ),
+        error: Math.abs(major - birdsFootMajor(alpha, minor)),
+        minor,
+      };
+    };
+
+    for (const cp of generic) {
+      const loose = sweepAngles(cp, soft).map(genericError);
+      const tight = sweepAngles(cp, stiff).map(genericError);
+      loose.forEach((l, i) => {
+        expect(l.minor).toBeGreaterThan(0.1); // all four creases move: not the straight branch
+        expect(Math.abs(l.unequal)).toBeLessThan(0.01);
+        expect(l.error).toBeLessThan(0.01);
+        expect(tight[i]!.error).toBeLessThanOrEqual(l.error);
+      });
+    }
+
+    const [first] = straight;
+    const loose = sweepAngles(first!, soft);
+    const tight = sweepAngles(first!, stiff);
+    loose.forEach((rho, i) => {
+      // The straight line folds by its target, and the two flat creases leave it by flex only.
+      const target = Math.sign(rho[1]!) * FOLDS[i]! * Math.PI;
+      expect(Math.sign(rho[3]!)).toBe(Math.sign(rho[1]!));
+      expect(Math.abs(rho[1]! - target)).toBeLessThan(0.01);
+      expect(Math.abs(rho[3]! - target)).toBeLessThan(0.01);
+      expect(Math.max(Math.abs(rho[0]!), Math.abs(rho[2]!))).toBeLessThan(0.05);
+      expect(Math.max(Math.abs(tight[i]![0]!), Math.abs(tight[i]![2]!))).toBeLessThan(
+        Math.max(Math.abs(rho[0]!), Math.abs(rho[2]!)),
+      );
+    });
   });
 });
 
