@@ -4,14 +4,16 @@
  *
  * Sits at the "gadgets" stage of the data flow (lattice → symmetry/gadgets → pattern → …). It does
  * not build creases; it states what the book says a twist of angle α can and cannot do, so tests
- * can check the shipped gadgets against it and step 8.1 can use it to filter a sweep before the
- * solver runs. Every angle is an exact rational multiple of π (`PiFraction`), so no float appears
- * and the comparisons are decided by integer cross-multiplication.
+ * can check the shipped gadgets against it and the sweep of step 8.1 can label each case's regime.
+ * Every angle is an exact rational multiple of π (`PiFraction`), so no float appears and the
+ * comparisons are decided by integer cross-multiplication.
  *
  * Reference: Lang, "Twists, Tilings, and Tessellations" (2018), §3.4 and §3.6 (Eq. 3.13). The
  * mm/vv and mv/vm limits (Eqs. 3.11, 3.12), Thm 17 and αsafe (Eq. 3.16) are deliberately absent:
  * the repo's notes state them without the book at hand, and as transcribed they disagree with the
- * solver on the shipped hexagon twist (see docs/PLAN.md 7.3d), so they wait for step 8.1.
+ * solver on the shipped hexagon twist (see docs/PLAN.md 7.3d). Step 8.1 decided to keep the solver
+ * as the ground truth and to keep them only as test-side candidate predicates
+ * (`core/generate/testing.ts`), whose disagreements the sweep test pins.
  */
 
 import { gcd, primitive } from "../lattice/direction";
@@ -81,7 +83,7 @@ export function twistRegime(n: number, alpha: PiFraction): TwistRegime {
 }
 
 /** The twelve 30° directions, counter-clockwise from +x; index i is the angle i·π/6. */
-const THIRTY_DEGREE_RAYS: readonly Eisenstein[] = (() => {
+export const THIRTY_DEGREE_RAYS: readonly Eisenstein[] = (() => {
   const rays: Eisenstein[] = [];
   let a = eis(1, 0);
   let b = eis(2, 1);
@@ -93,7 +95,13 @@ const THIRTY_DEGREE_RAYS: readonly Eisenstein[] = (() => {
   return rays;
 })();
 
-function rayIndex(z: Eisenstein): number {
+/**
+ * The index i of a direction on the 30° ray table, so that the direction has angle i·π/6.
+ *
+ * @param z - a non-zero direction on one of the twelve 30° rays (any positive multiple of one)
+ * @throws RangeError if z is zero or not a multiple of 30°
+ */
+export function rayIndex(z: Eisenstein): number {
   const p = primitive(z);
   const i = THIRTY_DEGREE_RAYS.findIndex((r) => equals(r, primitive(p)));
   if (i < 0) {

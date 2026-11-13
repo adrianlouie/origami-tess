@@ -3,8 +3,9 @@ import { hexagonTwist } from "../gadgets/hexagon-twist";
 import { primitive } from "../lattice/direction";
 import { add, eis, equals, mul, OMEGA, rot60, sub, type Eisenstein } from "../lattice/eisenstein";
 import type { CreasePattern } from "../pattern/crease-pattern";
-import { localMvClauses, satisfies } from "./clauses";
+import { localMvClauses } from "./clauses";
 import { layerOrder } from "./layer-order";
+import { locallyValidAssignments } from "./local-solutions";
 import { canonicalRotation, necklaceCount } from "./necklace";
 import { mvSolutions, solveMv, withMvAssignment } from "./solver";
 import { freed, rawTriangleTwist } from "./testing";
@@ -77,24 +78,6 @@ type Tally = {
 };
 
 /**
- * Every locally valid assignment of the unframed creases, by trying all 2^k of them against the
- * clauses. Cheap up to k = 18 (0.15 s) and independent of the DPLL enumeration in `mvSolutions`,
- * which restarts once per solution and takes seconds for the 730 solutions of the hexagon.
- */
-function locallyValid(cp: CreasePattern): boolean[][] {
-  const base = freed(cp);
-  const formula = localMvClauses(base);
-  const free = base.edges.flatMap((e, i) => (e.assignment === "U" ? [i] : []));
-  const found: boolean[][] = [];
-  for (let bits = 0; bits < 1 << free.length; bits++) {
-    const a = Array<boolean>(base.edges.length).fill(false);
-    free.forEach((e, i) => (a[e] = ((bits >> i) & 1) === 1));
-    if (satisfies(formula, a)) found.push(a);
-  }
-  return found;
-}
-
-/**
  * Sorts the locally valid assignments into pleat words and rotation classes, and runs the layer
  * solver on one assignment of each class. The gadget is symmetric under the rotation that
  * permutes its pleats, so a class folds or fails as a whole.
@@ -106,7 +89,7 @@ function tally(cp: CreasePattern, pleats: Pleat[]): Tally {
     number,
     number,
   ][];
-  for (const a of locallyValid(cp)) {
+  for (const a of locallyValidAssignments(cp)) {
     result.valid++;
     if (!edges.every(([x, y]) => a[x] !== a[y])) continue;
     result.anto++;
@@ -145,7 +128,9 @@ describe("hexagon twist assignments (α = 60° = αcrit, Lang Eq. 3.1)", () => {
     const key = (a: readonly boolean[]) => a.map((x) => (x ? 1 : 0)).join("");
     const unframed = (a: readonly boolean[]) =>
       a.map((x, e) => (cp.edges[e]!.assignment === "B" ? false : x));
-    expect(new Set(locallyValid(cp).map(key)).has(key(unframed(result.assignment)))).toBe(true);
+    expect(
+      new Set(locallyValidAssignments(cp).map(key)).has(key(unframed(result.assignment))),
+    ).toBe(true);
   });
 });
 
@@ -173,7 +158,7 @@ describe("triangle twist assignments (α = 60° > αcrit = 30°, Lang §3.6.1)",
 
   it("has as many solutions from mvSolutions as the brute-force count over all 2^9 (n=6, m=2)", () => {
     const cp = rawTriangleTwist(6, 2);
-    expect(locallyValid(cp)).toHaveLength(26);
+    expect(locallyValidAssignments(cp)).toHaveLength(26);
     expect([...mvSolutions(localMvClauses(freed(cp)))]).toHaveLength(26);
   });
 });

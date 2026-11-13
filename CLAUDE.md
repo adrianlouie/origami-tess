@@ -19,6 +19,7 @@ Status and next steps live in `docs/PLAN.md` and `docs/HANDOFF.md`, not here. Id
   - `validate/`: Kawasaki, Maekawa, Big-Little-Big
   - `solve/`: M/V assignment and layer ordering (SAT/constraint search)
   - `simulate/`: fold kinematics, bar-and-hinge
+  - `generate/`: parameter sweeps and generators over gadgets and the solver (Phase 8)
 - `app/`: viewer and export. Depends on `core/`, never the reverse.
 - Data flow: lattice → symmetry/gadgets → pattern → validate → solve → simulate/render.
 
