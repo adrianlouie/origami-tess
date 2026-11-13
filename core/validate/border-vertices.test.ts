@@ -69,3 +69,16 @@ describe("borderRuns", () => {
     expect(runs[0]!.edges.map((e) => cp.edges[e]!.assignment)).toEqual(["U", "U"]);
   });
 });
+
+describe("degenerate patterns", () => {
+  it("lists no wedge and no run for an empty pattern, a lone vertex, or a single segment", () => {
+    for (const cp of [
+      fromSegments([], []),
+      fromSegments([eis(0, 0)], []),
+      fromSegments([], [{ from: eis(0, 0), to: eis(1, 0) }]),
+    ]) {
+      expect(paperWedges(cp)).toEqual([]);
+      expect(borderRuns(cp)).toEqual([]);
+    }
+  });
+});

@@ -101,8 +101,8 @@ export function triangleTwistCreases(side: number, rayLength: number): Crease[] 
  * The three corners Pₖ are the only interior vertices, so a validator run over the result checks
  * exactly the twist's vertices. See {@link triangleTwistCreases} for the construction.
  *
- * Folds flat exactly when n ≥ 3m, which is the finite-paper effect of a supercritical cyclic twist. The M/V assignment is not what fails below that: with threefold
- * symmetry, Big-Little-Big leaves only this assignment and its global flip, and the flip folds the
+ * Folds flat exactly when n ≥ 3m, which is the finite-paper effect of a supercritical cyclic
+ * twist. The M/V assignment is not what fails below that: with threefold symmetry, Big-Little-Big leaves only this assignment and its global flip, and the flip folds the
  * same way. For n < 3m the stacking clauses (`stackingClauses`, step 5.1b) are unsatisfiable and the
  * independent layer oracle agrees; for n ≥ 3m they are satisfiable. The bound was found by running
  * `layerOrder` over n ≤ 12 and m ≤ 4 (pinned by the sweep in `layer-order.test.ts`), not derived in
