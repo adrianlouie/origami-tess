@@ -4,7 +4,7 @@ Math-driven generator for flat-foldable origami tessellations (uncut paper only,
 triangular-lattice twist folds as the target style). No AI/ML. Users generate a
 crease pattern from equations and symmetry, view it folded in 3D, and export it.
 
-Status and next steps live in `docs/PLAN.md` and `docs/HANDOFF.md`, not here. Ideas drawn from the reference book (Lang, *Twists, Tilings, and Tessellations*) live in `docs/BOOK_IMPROVEMENTS.md`.
+Status and next steps live in `docs/PLAN.md` and `docs/HANDOFF.md`, not here. Ideas drawn from the reference book (Lang, *Twists, Tilings, and Tessellations*) live in `docs/BOOK_IMPROVEMENTS.md`; ideas from the simulation references (Origami Simulator, Schenk and Guest, Tachi) live in `docs/SIMULATOR_IMPROVEMENTS.md`.
 
 ## Stack
 - TypeScript throughout. Vitest + fast-check for tests. Three.js for 3D, SVG for 2D.
@@ -20,7 +20,8 @@ Status and next steps live in `docs/PLAN.md` and `docs/HANDOFF.md`, not here. Id
   - `solve/`: M/V assignment and layer ordering (SAT/constraint search)
   - `simulate/`: fold kinematics, bar-and-hinge
   - `generate/`: parameter sweeps and generators over gadgets and the solver (Phase 8)
-- `app/`: viewer and export. Depends on `core/`, never the reverse.
+- Float simulate-only path (step V.11): a `FloatPattern` for patterns that are not on the lattice goes straight to `core/simulate/` and never to `validate/` or `solve/`; a test enforces the boundary. The viewer marks such a pattern as not verified.
+- `app/`: viewer, export, and (Product phase V) the presets, parameter panel and file import. Depends on `core/`, never the reverse. Imported files are untrusted: parse and snap them to the lattice in `app/`, and only then hand `core/` an exact pattern.
 - Data flow: lattice → symmetry/gadgets → pattern → validate → solve → simulate/render.
 
 ## Conventions
@@ -30,6 +31,7 @@ Status and next steps live in `docs/PLAN.md` and `docs/HANDOFF.md`, not here. Id
   constant, `RENDER_TOLERANCE` in `core/simulate/embed.ts`.
 - `core/` functions are pure; the pattern graph is treated as immutable.
 - Every math function has a test, and its docstring cites the theorem or formula it implements.
+- Credit what we build on. When code implements an idea, formula or convention from a paper, the book or another program (for example Origami Simulator's strain colouring), its TSDoc cites the source and `docs/CREDITS.md` lists it. Never copy code from a source without its licence notice in that file.
 - Prefer property-based tests for invariants (e.g. every generated vertex satisfies Kawasaki).
 - Terms: crease pattern (CP), mountain/valley (M/V), gadget (reusable twist unit), motif (tile seed). More in `docs/GLOSSARY.md`.
 

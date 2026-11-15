@@ -8,6 +8,10 @@ Page numbers are the book's printed pages. Tags: **[exact]** needs only exact-in
 **[float]** needs the float stage, **[test]** is a test oracle or cross-check, **[doc]** is a wording fix.
 Priority: P1 do soon, P2 useful, P3 later or optional.
 
+**See also** `docs/SIMULATOR_IMPROVEMENTS.md` for the simulation and viewer references (Origami Simulator, Schenk and Guest 2010, Tachi 2010).
+
+**Status (2026-11-15).** The book backlog is paused for the Product phase (V) in `docs/PLAN.md`. V.3, V.4 and V.7 (presets, parameters, pleats) draw on the twist and tiling items below, and V.8 (square grid) waits for the "Decisions first" items, which B.0 settles: the exact type becomes Z[ζ₁₂], reflections become rational maps over Q(ζ₁₂), and floats are snapped before `pattern/`.
+
 ## Reading status
 
 | Part | Status |
