@@ -4,7 +4,7 @@ Math-driven generator for flat-foldable origami tessellations (uncut paper only,
 triangular-lattice twist folds as the target style). No AI/ML. Users generate a
 crease pattern from equations and symmetry, view it folded in 3D, and export it.
 
-Status and next steps live in `docs/PLAN.md` and `docs/HANDOFF.md`, not here. Ideas drawn from the reference book (Lang, *Twists, Tilings, and Tessellations*) live in `docs/BOOK_IMPROVEMENTS.md`.
+Status and next steps live in `docs/PLAN.md` and `docs/HANDOFF.md`, not here. Ideas drawn from the reference book (Lang, *Twists, Tilings, and Tessellations*) live in `docs/BOOK_IMPROVEMENTS.md`; ideas from the simulation references (Origami Simulator, Schenk and Guest, Tachi) live in `docs/SIMULATOR_IMPROVEMENTS.md`.
 
 ## Stack
 - TypeScript throughout. Vitest + fast-check for tests. Three.js for 3D, SVG for 2D.
