@@ -20,7 +20,7 @@ Status and next steps live in `docs/PLAN.md` and `docs/HANDOFF.md`, not here. Id
   - `solve/`: M/V assignment and layer ordering (SAT/constraint search)
   - `simulate/`: fold kinematics, bar-and-hinge
   - `generate/`: parameter sweeps and generators over gadgets and the solver (Phase 8)
-- `app/`: viewer and export. Depends on `core/`, never the reverse.
+- `app/`: viewer, export, and (Product phase V) the presets, parameter panel and file import. Depends on `core/`, never the reverse. Imported files are untrusted: parse and snap them to the lattice in `app/`, and only then hand `core/` an exact pattern.
 - Data flow: lattice → symmetry/gadgets → pattern → validate → solve → simulate/render.
 
 ## Conventions
