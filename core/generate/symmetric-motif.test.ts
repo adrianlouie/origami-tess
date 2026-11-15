@@ -1,3 +1,4 @@
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { eis } from "../lattice/eisenstein";
 import { apply, rotation60, translation } from "../symmetry/affine";
@@ -125,6 +126,19 @@ describe("mulberry32 and randomOrientation", () => {
     expect(xs).toEqual(Array.from({ length: 20 }, () => b()));
     expect(xs.every((x) => x >= 0 && x < 1)).toBe(true);
     expect(xs).not.toEqual(Array.from({ length: 20 }, mulberry32(6)));
+  });
+
+  it("stays in [0, 1) for any 32-bit seed, and a seed and its 2^32 shift agree", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: -(2 ** 31), max: 2 ** 32 - 1 }), (seed) => {
+        const rng = mulberry32(seed);
+        for (let i = 0; i < 50; i++) {
+          const x = rng();
+          expect(x >= 0 && x < 1).toBe(true);
+        }
+        expect(mulberry32(seed + 2 ** 32)()).toBe(mulberry32(seed)());
+      }),
+    );
   });
 
   it("assigns one value per orbit, up to the orbit's flips", () => {

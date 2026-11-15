@@ -2,6 +2,8 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { toCartesian } from "../simulate/embed";
 import { eis, type Eisenstein } from "../lattice/eisenstein";
+import { cross } from "../lattice/direction";
+import { hexDistance } from "../lattice/grid";
 import { apply, rotation60 } from "../symmetry/affine";
 import type { CreasePattern } from "../pattern/crease-pattern";
 import { mulberry32 } from "./symmetric-motif";
@@ -410,5 +412,77 @@ describe("grown patterns", () => {
     expect(() => grownPattern(growthBoard("3^6", 2), [0], "outward", { mirror: false })).toThrow(
       RangeError,
     );
+  });
+});
+
+describe("growth properties (audit 8.4)", () => {
+  const WINDOWS: readonly (readonly [TilingKind, number])[] = [
+    ["3^6", 4],
+    ["6^3", 4],
+    ["3.6.3.6", 3],
+  ];
+  const tileKey = (corners: readonly Eisenstein[]): string =>
+    corners
+      .map((z) => `${z.a},${z.b}`)
+      .sort()
+      .join("|");
+
+  it("every birth set grows disks that only gain tiles and keep the board's 60 degree symmetry", () => {
+    // Exhaustive over the 63 non-empty subsets of 1..6: random draws rarely hit the sets that pinch
+    // (birth {1} on 3^6), and a mutation without the disk guard survived them.
+    for (const [kind, radius] of WINDOWS) {
+      const board = growthBoard(kind, radius);
+      for (let mask = 1; mask < 64; mask++) {
+        const counts = [1, 2, 3, 4, 5, 6].filter((n) => (mask >> (n - 1)) & 1);
+        const result = grow(board, { birth: counts }, 8);
+        let before = 0;
+        for (let g = 0; g < result.history.length; g++) {
+          const live = result.birth.map((b) => b >= 0 && b <= g);
+          expect(isDisk(board, live)).toBe(true);
+          const count = live.filter(Boolean).length;
+          expect(count).toBeGreaterThan(before);
+          before = count;
+          const keys = new Set(board.tiles.filter((_, t) => live[t]).map(tileKey));
+          for (const [t, tile] of board.tiles.entries()) {
+            if (live[t])
+              expect(keys.has(tileKey(tile.map((z) => apply(rotation60(1), z))))).toBe(true);
+          }
+        }
+      }
+    }
+  });
+
+  it("two adjacent tiles at equal distance from the origin are never collinear with it", () => {
+    // grownOrientation falls back to the sign of this cross product for equal age and distance, and
+    // throws on zero. Adjacent pairs of the whole board cover every region and every seed.
+    for (const [kind, radius] of [
+      ["3^6", 6],
+      ["6^3", 8],
+      ["3.6.3.6", 6],
+    ] as const) {
+      const board = growthBoard(kind, radius);
+      const centre = (t: number): Eisenstein => {
+        const tile = board.tiles[t]!;
+        const sum = tile.reduce((acc, z) => eis(acc.a + z.a, acc.b + z.b), eis(0, 0));
+        return eis(sum.a / tile.length, sum.b / tile.length);
+      };
+      let equal = 0;
+      for (const { a, b } of board.shared) {
+        const [f, g] = [centre(a), centre(b)];
+        if (hexDistance(f) !== hexDistance(g)) continue;
+        equal++;
+        expect(cross(f, g)).not.toBe(0);
+      }
+      // 3.6.3.6 has no such pair at all (measured: 36 on 3^6 radius 6, 12 on 6^3 radius 8).
+      expect(equal > 0).toBe(kind !== "3.6.3.6");
+    }
+  });
+
+  it("a seed that fills the board is stable at once", () => {
+    const board = growthBoard("3^6", 2);
+    const full = board.tiles.map(() => 0);
+    const result = grow(board, { birth: [1, 2, 3] }, 4, full);
+    expect(result.status).toBe("stable");
+    expect(result.history).toEqual([board.tiles.length]);
   });
 });
