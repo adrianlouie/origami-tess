@@ -71,15 +71,19 @@ Tags: **[sim]** solver or physics, **[ui]** viewer controls and look, **[import]
 28. **[math] P2 Edge-collapse generator move (Tachi §4).** A short edge is collapsed to merge two vertices, with three rules that keep the flat-folded state unchanged: the merged edge's target angle is the sum of the two, the angles around the merged vertex must sum to ±2π (Maekawa), and an interior vertex keeps at least four creases. Two cases are allowed: two ±2π vertices merged by collapsing a ±π edge, or a 2π and a −2π vertex. On the lattice this is exact (the merged vertex is one of the two endpoints). A move for `core/generate/` next to the splice and subdivision moves already in the back-log (BOOK_IMPROVEMENTS §8.3), and it changes the pattern's topology, which gives new combinations of vertex types (his Fig. 7).
 29. **[sim] P3, needs a decision: freeform editing (Tachi §5).** Drag a vertex in the folded 3D state while the system keeps developability, the boundary conditions (Eqs. 2–4: sector angles and edge lengths on the perimeter preserved, or the boundary convex) and, if wanted, flat-foldability. Mathematically it is dx = (I − J⁺J) dx₀ for the user's drag dx₀, with a Newton–Raphson correction at every step. Tachi reports 1 to 5 frames per second for 256 vertices with 452 constraints. This produces **float** patterns that are generally not on the lattice, so it cannot enter `pattern/` and the validators under the B.0 decision (floats are snapped first). Options for later: keep it as a float-only design mode that exports FOLD and never feeds `core/validate`, or snap its result. Recorded, not planned.
 
+### Any pattern and curved creases (V.11, V.12)
+
+30. **[sim] P2 Curved creases (V.12), float only.** Origami Simulator reads curved creases from SVG, discretises each curve (settings: vertex interval, default 20, and approximation quality, default 0.2) and pre-processes the mesh with ruling-aware triangulation, so the bending between creases looks right; its `curvedFolding.js` is about 2 900 lines and was **not read** in this deep dive (only the README and the settings), so V.12 starts by reading it and the paper. Tachi §6.6 tried curved folds with planar-quad strips (target angle 0, α = 0) and found the surface easily goes jagged from excess degrees of freedom, and says more constraints are needed. Float only: curves are not on the lattice, and Kawasaki and Maekawa do not apply to them.
+31. **[sim] P2 A float simulate-only path (V.11).** The simulation stage is already float, so any planar uncut pattern can be simulated if it skips the exact validators. The path is isolated: `core/simulate/` and the float import never import from `core/validate/` or `core/solve/`, a test enforces it, and the viewer says the pattern is not verified. This amends B.0 decision 3 ("snap before `pattern/`"); the exact path stays the default for anything that fits the lattice.
+
 ## Deliberately not adopted
 
 - **Cut edges** (the simulator's green lines, `splitCuts`): the project is uncut paper only.
-- **Curved folding** (Ghassaei's `curvedFolding.js`, 2 900 lines, ruling-aware triangulation; Tachi §6.6, which found jagged surfaces): out of scope for a lattice-based tool.
 - **VR, the static and rigid solver modes**: the static solver is a linear solve with fixed nodes and applied forces, and its rigid solver is an unfinished stub in the repository. Item 22 is the rigorous version of the rigid mode.
 - **Tachi's Origamizer comparison and crimp folds** (his §1): outside the project.
 
 ## Open questions
 
 - Finding 2: match the simulator's stiffness constants or keep ours (V.2c decides, with the settling tests).
-- Item 29: is a float-only freeform editor wanted at all?
+- Item 29: is a float-only freeform editor wanted at all? (V.11's float path would be the place for it; not planned.)
 - Item 12: is a Web Worker enough, or is a GPU port ever wanted? Decide from a measurement after V.3 and V.4.
