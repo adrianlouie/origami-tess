@@ -1,3 +1,4 @@
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { assignmentFromPattern } from "../solve/clauses";
 import { nearFoldability } from "../solve/near-foldability";
@@ -69,5 +70,61 @@ describe("generated shrink-rotate patterns (step 8.2 acceptance)", () => {
       const result = repairAssignment(sr.cp, broken, singleCreaseMoves(sr.cp), { maxRounds: 4 });
       expect(result.status).toBe("ok");
     }
+  });
+});
+
+describe("repair (audit 8.4)", () => {
+  const sr = shrinkRotate(regularTiling("3^6", 1), { mirror: false });
+
+  it("leaves an assignment that already folds alone: one trace entry, no move", () => {
+    const good = assignmentFromPattern(
+      orientedPattern(
+        sr,
+        sr.interior.map((_, j) => j % 2 === 0),
+      )!,
+    );
+    const result = repairAssignment(sr.cp, good, singleCreaseMoves(sr.cp), { maxRounds: 3 });
+    expect(result.status).toBe("ok");
+    expect(result.trace).toHaveLength(1);
+    expect(result.assignment).toEqual(good);
+  });
+
+  it("with no moves it stops at once, and a stuck result has no improving single flip", () => {
+    const rng = mulberry32(9);
+    const start = sr.cp.edges.map(() => rng() < 0.5);
+    const none = repairAssignment(sr.cp, start, [], { maxRounds: 3 });
+    expect(none.status).toBe("stuck");
+    expect(none.assignment).toEqual(start);
+    // A short move list forces local maxima; check each against an exhaustive scan of its moves.
+    const moves = singleCreaseMoves(sr.cp).slice(0, 3);
+    let stuck = 0;
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const r = mulberry32(seed);
+      const s0 = sr.cp.edges.map(() => r() < 0.5);
+      const result = repairAssignment(sr.cp, s0, moves, { maxRounds: 10 });
+      if (result.status !== "stuck") continue;
+      stuck++;
+      const score = scoreAssignment(sr.cp, result.assignment);
+      for (const move of moves) {
+        const flipped = [...result.assignment];
+        for (const e of move) flipped[e] = !flipped[e];
+        expect(isBetter(scoreAssignment(sr.cp, flipped), score)).toBe(false);
+      }
+    }
+    expect(stuck).toBeGreaterThan(0);
+  });
+
+  it("isBetter is a strict order on fractions (irreflexive, asymmetric, transitive)", () => {
+    const share = fc.record({
+      num: fc.integer({ min: 0, max: 1000 }),
+      den: fc.integer({ min: 1, max: 1000 }),
+    });
+    fc.assert(
+      fc.property(share, share, share, (a, b, c) => {
+        expect(isBetter(a, a)).toBe(false);
+        if (isBetter(a, b)) expect(isBetter(b, a)).toBe(false);
+        if (isBetter(a, b) && isBetter(b, c)) expect(isBetter(a, c)).toBe(true);
+      }),
+    );
   });
 });

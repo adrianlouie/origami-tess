@@ -40,6 +40,8 @@ import { parseStepParam, stepView } from "../app/viewer/step-panel";
 import { sheetGeometry } from "../app/viewer/sheet";
 import { barHingeModel } from "./simulate/model";
 import { relax, restState } from "./simulate/relax";
+import { grow, growthBoard, grownPattern } from "./generate/growth";
+import { orientedPattern, regularTiling, shrinkRotate } from "./generate/shrink-rotate";
 
 type Expected = { status: "ok" } | { status: "partial"; score: { num: number; den: number } };
 
@@ -270,4 +272,75 @@ describe("pattern → fold simulation", () => {
       expect(result.positions.every(Number.isFinite)).toBe(true);
     },
   );
+});
+
+/** Phase 8 generators: their output must take the same road as the shipped gadgets (audit 8.4). */
+const GENERATED: [string, () => CreasePattern][] = [
+  [
+    "shrink-rotate 3^6 radius 1",
+    () => {
+      const sr = shrinkRotate(regularTiling("3^6", 1), { mirror: false });
+      return orientedPattern(
+        sr,
+        sr.interior.map((_, j) => j % 2 === 0),
+      )!;
+    },
+  ],
+  [
+    "grown 3^6 radius 2, birth {1,2}",
+    () => {
+      const board = growthBoard("3^6", 2);
+      return grownPattern(board, grow(board, { birth: [1, 2] }, 3).birth, "outward", {
+        mirror: false,
+      }).cp!;
+    },
+  ],
+];
+
+describe.each(GENERATED)("generated pattern: %s", (_name, build) => {
+  it("passes the local validators and the layer solver", () => {
+    const cp = build();
+    expect(checkLocalFlatFoldability(cp)).toEqual({
+      kawasaki: [],
+      maekawa: [],
+      unassigned: [],
+      bigLittleBig: [],
+      borderBigLittleBig: [],
+      singleVertex: [],
+    });
+    expect(nearFoldability(cp).status).toBe("ok");
+  });
+
+  it("exports to SVG and PDF with one line per maximal crease", () => {
+    const cp = build();
+    const lines = creaseLines(cp);
+    expect(creasePatternToSvg(cp).match(/<line /g)).toHaveLength(lines.length);
+    const pdf = new TextDecoder("latin1").decode(creasePatternToPdf(cp));
+    expect(pdf.match(/ l S\n/g)).toHaveLength(lines.length);
+  });
+
+  it("builds a 3D scene and a bar-and-hinge model that settles at fold 0.25", () => {
+    const cp = build();
+    expect(buildScene(cp).getObjectByName("sheet")).toBeDefined();
+    const model = barHingeModel(cp);
+    expect(model.rest).toHaveLength(sheetGeometry(cp).positions.length);
+    const result = relax(model, restState(model), 0.25);
+    expect(result.settled).toBe(true);
+    expect(result.positions.every(Number.isFinite)).toBe(true);
+  });
+
+  it("has a step list that covers every mountain and valley edge once", () => {
+    const cp = build();
+    const steps = foldSteps(cp);
+    expect(steps.at(-1)!.kind).toBe("collapse");
+    const covered = steps.flatMap((s) =>
+      s.kind === "crease" ? s.lines.flatMap((l) => l.edges) : [],
+    );
+    const mv = cp.edges.filter((e) => e.assignment === "M" || e.assignment === "V");
+    expect(covered).toHaveLength(mv.length);
+    expect(new Set(covered).size).toBe(mv.length);
+    const pdf = new TextDecoder("latin1").decode(foldStepsToPdf(cp, "generated"));
+    expect(pdf).toContain(`/Count ${steps.length + 1}`);
+    expect(foldStepsToSvg(cp, "generated").match(/<g data-step="/g)).toHaveLength(steps.length);
+  });
 });

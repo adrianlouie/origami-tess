@@ -135,7 +135,12 @@ export function isDisk(board: GrowthBoard, live: readonly boolean[]): boolean {
   return vertices.size - sides.size + liveCount === 1;
 }
 
-/** A totalistic birth rule: a dead tile is born when its live-neighbour count is in `birth`. */
+/**
+ * A totalistic birth rule: a dead tile is born when its live-neighbour count is in `birth`.
+ *
+ * Counts are integers in 1..6 (a hexagon has six sides). A triangle has three, so counts above 3
+ * can only fire on hexagons; a set with none that applies stops at once with status `stable`.
+ */
 export type GrowthRule = { readonly birth: readonly number[] };
 
 /** The tiles of a tiling that contain the origin: the seed of the automaton. */
@@ -178,8 +183,9 @@ export type GrowthStep = {
  * @param board - the board
  * @param birth - birth generation per tile, −1 for dead
  * @param rule - the birth rule
- * @param generation - the generation number recorded for the new tiles
- * @throws RangeError for a bad rule or a `birth` of the wrong length
+ * @param generation - the generation number recorded for the new tiles, a safe integer ≥ 1 (a
+ *   negative value would mark a born tile dead, and 0 is the seed's generation)
+ * @throws RangeError for a bad rule, a bad generation number or a `birth` of the wrong length
  */
 export function growthStep(
   board: GrowthBoard,
@@ -188,6 +194,9 @@ export function growthStep(
   generation: number,
 ): GrowthStep {
   checkRule(rule);
+  if (!Number.isSafeInteger(generation) || generation < 1) {
+    throw new RangeError(`Generation must be a safe integer >= 1, got ${generation}`);
+  }
   if (birth.length !== board.tiles.length) {
     throw new RangeError(`Need ${board.tiles.length} birth entries, got ${birth.length}`);
   }
