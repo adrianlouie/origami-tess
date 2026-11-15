@@ -135,7 +135,12 @@ export function isDisk(board: GrowthBoard, live: readonly boolean[]): boolean {
   return vertices.size - sides.size + liveCount === 1;
 }
 
-/** A totalistic birth rule: a dead tile is born when its live-neighbour count is in `birth`. */
+/**
+ * A totalistic birth rule: a dead tile is born when its live-neighbour count is in `birth`.
+ *
+ * Counts are integers in 1..6 (a hexagon has six sides). A triangle has three, so counts above 3
+ * can only fire on hexagons; a set with none that applies stops at once with status `stable`.
+ */
 export type GrowthRule = { readonly birth: readonly number[] };
 
 /** The tiles of a tiling that contain the origin: the seed of the automaton. */

@@ -35,7 +35,8 @@ const key = (z: Eisenstein): string => `${z.a},${z.b}`;
  * @param sr - the tessellation
  * @param symmetry - `rotation` is the order of the rotation about the origin (1, 2, 3 or 6);
  *   `period`, in unit lattice steps, adds translations by period and period·ω
- * @throws RangeError for an unsupported order, a rotation that is not a symmetry of the tiling, or
+ * @throws RangeError for an unsupported order, a rotation that is not a symmetry of the tessellation
+ *   (its tile set must be invariant, so a grown region that is not symmetric is rejected too), or
  *   an orbit with no symmetric assignment
  */
 export function edgeOrbits(
@@ -116,7 +117,8 @@ export function edgeOrbits(
  *
  * For reproducible generation and tests only: it is not a statistical or cryptographic generator.
  *
- * @param seed - any 32-bit integer
+ * @param seed - any 32-bit integer; other numbers are reduced as `seed >>> 0` (a fraction is truncated,
+ *   NaN is 0, and a seed and its shift by 2³² give the same stream)
  */
 export function mulberry32(seed: number): () => number {
   let state = seed >>> 0;
