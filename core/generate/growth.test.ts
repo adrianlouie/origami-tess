@@ -319,6 +319,14 @@ describe("growthStep", () => {
     expect(() => growthStep(board, birth, { birth: [1.5] }, 1)).toThrow(RangeError);
     expect(() => growthStep(board, [0], { birth: [1] }, 1)).toThrow(RangeError);
   });
+
+  it("rejects a generation number that would record a born tile as dead or as the seed", () => {
+    const board = growthBoard("3^6", 2);
+    const birth = seedBirth(board);
+    for (const g of [0, -1, 1.5, Number.NaN, 2 ** 53]) {
+      expect(() => growthStep(board, birth, { birth: [1] }, g)).toThrow(RangeError);
+    }
+  });
 });
 
 describe("grow", () => {

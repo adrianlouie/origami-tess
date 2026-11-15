@@ -178,8 +178,9 @@ export type GrowthStep = {
  * @param board - the board
  * @param birth - birth generation per tile, −1 for dead
  * @param rule - the birth rule
- * @param generation - the generation number recorded for the new tiles
- * @throws RangeError for a bad rule or a `birth` of the wrong length
+ * @param generation - the generation number recorded for the new tiles, a safe integer ≥ 1 (a
+ *   negative value would mark a born tile dead, and 0 is the seed's generation)
+ * @throws RangeError for a bad rule, a bad generation number or a `birth` of the wrong length
  */
 export function growthStep(
   board: GrowthBoard,
@@ -188,6 +189,9 @@ export function growthStep(
   generation: number,
 ): GrowthStep {
   checkRule(rule);
+  if (!Number.isSafeInteger(generation) || generation < 1) {
+    throw new RangeError(`Generation must be a safe integer >= 1, got ${generation}`);
+  }
   if (birth.length !== board.tiles.length) {
     throw new RangeError(`Need ${board.tiles.length} birth entries, got ${birth.length}`);
   }
